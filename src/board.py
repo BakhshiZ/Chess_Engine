@@ -28,23 +28,38 @@ class Board:
         self.stalemate = False
 
     def make_move(self, move: Coordinate) -> bool:
-        old_coord, new_coord = move
         """
         update board state after making move
         update move history after making move
         update any flags
         """
+        pass
+
 
     def can_make_move(self, move: Coordinate) -> bool:
+        """
+        Check if move is a valid move for pieces
+        Call check_checker
+        """
         pass
 
     def check_checker(self, move: Coordinate) -> bool:
+        """
+        Simulate move and check if the king is in view of enemy piece
+        """
         pass
 
     def get_piece_moves(self, coordinate: BoardPosition) -> List[Coordinate]:
+        """
+        Pass a coordinate and check all possible moves for that piece by calling the
+        appropriate piece function
+        """
         pass
 
     def checkmate_stalemate_checker(self, move: Coordinate) -> bool:
+        """
+        Simulate move and check a side has no legal moves, then if stalemate of checkmate
+        """
         pass
 
     def get_piece_info(self, coordinate: BoardPosition) -> PieceInfo:
