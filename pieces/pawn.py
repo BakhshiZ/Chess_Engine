@@ -1,12 +1,10 @@
 from src.types import Coordinate, MoveCoordinate
+from src.constants import MIN_INDEX, MAX_INDEX
 from typing import Tuple, TYPE_CHECKING
 if TYPE_CHECKING:
     from src.board import Board
 
-MIN_INDEX = 0
-MAX_INDEX = 7
-
-def get_pawn_moves(board: 'Board', piece_coordinate: MoveCoordinate) -> Tuple[MoveCoordinate, ...]:
+def get_pawn_moves(board: 'Board', piece_coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
     legal_moves = []
     square = board.get_piece_info(piece_coordinate)
     start_row = 6 if square.Color == 'W' else 1
@@ -38,12 +36,16 @@ def get_pawn_moves(board: 'Board', piece_coordinate: MoveCoordinate) -> Tuple[Mo
     for d_r, d_c in directions[square.Color]:
         new_row = square.Row + d_r
         new_col = square.Col + d_c
+        
         # Making sure pawns stay in bounds
-        if MIN_INDEX <= new_col <= MAX_INDEX and MIN_INDEX <= new_row <= MAX_INDEX:
-            new_coord = (new_row, new_col)
-            target_square = board.get_piece_info((new_row, new_col))
-            # If diagonal is an enemy piece then it is possible to go to
-            if target_square.PieceType is not None and target_square.Color != square.Color:
-                legal_moves.append((old_coord, new_coord))
-    
+        if not (MIN_INDEX <= new_col <= MAX_INDEX and MIN_INDEX <= new_row <= MAX_INDEX):
+            continue
+        
+        new_coord = (new_row, new_col)
+        target_square = board.get_piece_info((new_row, new_col))
+        
+        # If diagonal is an enemy piece then it is possible to go to
+        if target_square.PieceType is not None and target_square.Color != square.Color:
+            legal_moves.append((old_coord, new_coord))
+
     return tuple(legal_moves)

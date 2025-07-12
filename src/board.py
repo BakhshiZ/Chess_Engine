@@ -1,4 +1,5 @@
 from src.types import Coordinate, MoveCoordinate, Flags, Moves, Piece, PieceInfo
+from src.constants import ROW_COUNT, COL_COUNT
 from typing import List, Tuple
 
 class Board:
@@ -109,9 +110,9 @@ class Board:
     def print_board(self) -> None:
         letters = "     a     b     c     d     e     f     g     h"
         print(letters)
-        for row in range(8):
+        for row in range(ROW_COUNT):
             print(8 - row, end=" | ")
-            for col in range(8):
+            for col in range(COL_COUNT):
                 target = self.get_piece_info(coordinate=(row, col))
                 if target.PieceType is None:
                     print("   ", end=" | ")
