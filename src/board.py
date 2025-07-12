@@ -1,4 +1,4 @@
-from src.types import BoardPosition, Coordinate, Flags, Moves, Piece, PieceInfo
+from src.types import Coordinate, MoveCoordinate, Flags, Moves, Piece, PieceInfo
 from typing import List, Tuple
 
 class Board:
@@ -30,7 +30,7 @@ class Board:
         self.checkmate = False
         self.stalemate = False
 
-    def make_move(self, move: Coordinate) -> bool:
+    def make_move(self, move: MoveCoordinate) -> bool:
         """
         update board state after making move [DONE]
         update any flags [DONE]
@@ -65,35 +65,35 @@ class Board:
 
         return True
 
-    def can_make_move(self, move: Coordinate) -> bool:
+    def can_make_move(self, move: MoveCoordinate) -> bool:
         """
         Check if move is a valid move for pieces
         Call check_checker
         """
         pass
 
-    def check_checker(self, move: Coordinate) -> bool:
+    def check_checker(self, move: MoveCoordinate) -> bool:
         """
         Simulate move and check if the king is in view of enemy piece
         """
         pass
 
-    def get_piece_moves(self, coordinate: BoardPosition) -> Tuple[Coordinate]:
+    def get_piece_moves(self, coordinate: Coordinate) -> Tuple[MoveCoordinate]:
         """
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
         """
         pass
 
-    def checkmate_stalemate_checker(self, move: Coordinate) -> bool:
+    def checkmate_stalemate_checker(self, move: MoveCoordinate) -> bool:
         """
         Simulate move and check a side has no legal moves, then if stalemate of checkmate
         """
         pass
 
     # Helper functions
-    def get_piece_info(self, coordinate: BoardPosition) -> PieceInfo:
-        row, col = coordinate
+    def get_piece_info(self, piece_coord: Coordinate) -> PieceInfo:
+        row, col = piece_coord
         if self.board[row][col] is None:
             return PieceInfo(Row=row, Col=col, Color=None, PieceType=None)
 
@@ -121,7 +121,7 @@ class Board:
             print('---------------------------------------------------')
         print(letters)
 
-    def castling_mover(self, move: Coordinate) -> None:
+    def castling_mover(self, move: MoveCoordinate) -> None:
         old_coord, _ = move
         old_target = self.get_piece_info(old_coord)
 

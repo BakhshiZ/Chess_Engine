@@ -2,10 +2,10 @@ from typing import Literal, Tuple, Union
 from dataclasses import dataclass
 
 # Coorindates types
-BoardPosition = Tuple[int, int]
-OldCoord = BoardPosition
-NewCoord = BoardPosition
-Coordinate = Tuple[OldCoord, NewCoord]
+Coordinate = Tuple[int, int]
+OldCoord = Coordinate
+NewCoord = Coordinate
+MoveCoordinate = Tuple[OldCoord, NewCoord]
 
 # Piece attributes
 Color = Literal['W', 'B']
