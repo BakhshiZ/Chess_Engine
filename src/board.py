@@ -1,4 +1,4 @@
-from src.types import BoardPosition, Coordinate, Piece, PieceInfo
+from src.types import BoardPosition, Coordinate, Flags, Moves, Piece, PieceInfo
 from typing import List, Tuple
 
 class Board:
@@ -16,12 +16,15 @@ class Board:
             ["W_P"] * 8,
             ["W_R", "W_N", "W_B", "W_Q", "W_K", "W_B", "W_N", "W_R"]
             ]
-
+        self.move_history: List[Moves] = []
         # Castling flags
         self.white_king_moved = False
         self.black_king_moved = False
-        self.white_rook_moved = [False, False] # Queenside, Kingside
-        self.black_rook_moved = [False, False] # Queenside, Kingside
+        self.white_rook_moved = (False, False) # Queenside, Kingside
+        self.black_rook_moved = (False, False) # Queenside, Kingside
+
+        # Tuple to pass into move history
+        self.flags = (self.white_king_moved, self.black_king_moved, self.white_rook_moved, self.black_rook_moved)
 
         # Terminating flags
         self.checkmate = False
@@ -29,12 +32,38 @@ class Board:
 
     def make_move(self, move: Coordinate) -> bool:
         """
-        update board state after making move
-        update move history after making move
-        update any flags
+        update board state after making move [DONE]
+        update any flags [DONE]
+        update move history after making move [DONE]
         """
-        pass
+        if not self.can_make_move(move):
+            return False
+        
+        old_coord, new_coord = move
+        
+        old_target = self.get_piece_info(old_coord)
+        new_target = self.get_piece_info(new_coord)
 
+        old_row, old_col = old_target.Row, old_target.Col
+        new_row, new_col = new_target.Row, new_target.Col
+
+        # Getting information for move history
+        moved_piece = old_target.Color + '_' + old_target.PieceType
+        if new_target.PieceType is not None:
+            captured_piece = new_target.Color + '_' + new_target.PieceType
+        else:
+            captured_piece = None
+        flags: Flags = self.update_flags_after_move()
+
+        # Updating board state
+        self.board[new_row][new_col] = moved_piece
+        self.board[old_row][old_col] = None
+
+        # Updating move history        
+        move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, flags)
+        self.move_history.append(move_entry)
+
+        return True
 
     def can_make_move(self, move: Coordinate) -> bool:
         """
@@ -49,7 +78,7 @@ class Board:
         """
         pass
 
-    def get_piece_moves(self, coordinate: BoardPosition) -> List[Coordinate]:
+    def get_piece_moves(self, coordinate: BoardPosition) -> Tuple[Coordinate]:
         """
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
@@ -62,6 +91,7 @@ class Board:
         """
         pass
 
+    # Helper functions
     def get_piece_info(self, coordinate: BoardPosition) -> PieceInfo:
         row, col = coordinate
         if self.board[row][col] is None:
@@ -91,6 +121,41 @@ class Board:
             print('---------------------------------------------------')
         print(letters)
 
-if __name__ == '__main__':
-    board = Board()
-    board.print_board()
+    def castling_mover(self, move: Coordinate) -> None:
+        old_coord, _ = move
+        old_target = self.get_piece_info(old_coord)
+
+        if old_target.Row == 7:
+            if old_target.Col == 4:
+                self.board[7][6] = "W_K"
+                self.board[7][5] = "W_R"
+                self.board[7][4] = None
+                self.board[7][7] = None
+            else:
+                self.board[7][2] = "W_K"
+                self.board[7][3] = "W_R"
+                self.board[7][4] = None
+                self.board[7][0] = None
+        else:
+            if old_target.Col == 4:
+                self.board[0][6] = "B_K"
+                self.board[0][5] = "B_R"
+                self.board[0][4] = None
+                self.board[0][7] = None
+            else:
+                self.board[0][2] = "B_K"
+                self.board[0][3] = "B_R"
+                self.board[0][4] = None
+                self.board[0][0] = None
+
+    def update_flags_after_move(self) -> Flags:
+        """
+        Update castling and check flags after every move
+        """
+        pass
+
+# if __name__ == '__main__':
+#     board = Board()
+#     board.print_board()
+#     board.make_move(((6, 4), (4, 4)))
+#     board.print_board()
