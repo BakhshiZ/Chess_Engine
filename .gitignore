@@ -1,0 +1,6 @@
+# Virtual environment
+chess_env
+
+__pycache__
+.idea
+.vscode
