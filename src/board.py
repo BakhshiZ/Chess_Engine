@@ -78,7 +78,7 @@ class Board:
         """
         pass
 
-    def get_piece_moves(self, coordinate: Coordinate) -> Tuple[MoveCoordinate]:
+    def get_piece_moves(self, coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
         """
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
