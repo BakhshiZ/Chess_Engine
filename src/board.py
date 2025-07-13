@@ -32,53 +32,81 @@ class Board:
         self.checkmate = False
         self.stalemate = False
 
-    def make_move(self, move: MoveCoordinate) -> bool:
+    def make_move(self, move: MoveCoordinate, is_simulation: bool = False) -> bool:
         """
-        update board state after making move [DONE]
-        update any flags [DONE]
-        update move history after making move [DONE]
+        Apply a move to the board.
+        If is_simulation is True, skip validation and flag updates, but still update move_history for undoing.
         """
-        if not self.can_make_move(move):
-            return False
-        
+
+        # If move is being simulated, no need to validate
+        if not is_simulation:
+            if not self.can_make_move(move):
+                return False
+
         old_coord, new_coord = move
-        
         old_target = self.get_piece_info(old_coord)
         new_target = self.get_piece_info(new_coord)
 
         old_row, old_col = old_target.Row, old_target.Col
         new_row, new_col = new_target.Row, new_target.Col
 
-        # Getting information for move history
         moved_piece = old_target.Color + '_' + old_target.PieceType
-        if new_target.PieceType is not None:
-            captured_piece = new_target.Color + '_' + new_target.PieceType
-        else:
-            captured_piece = None
-        flags: Flags = self.update_flags_after_move()
+        captured_piece = (
+            new_target.Color + '_' + new_target.PieceType
+            if new_target.PieceType is not None
+            else None
+        )
 
-        # Updating board state
+        # Move piece
         self.board[new_row][new_col] = moved_piece
         self.board[old_row][old_col] = None
 
-        # Updating move history        
-        move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, flags)
-        self.move_history.append(move_entry)
+        # Use dummy flags if simulating (won't affect state)
+        if is_simulation:
+            dummy_flags: Flags = self.flags
+            move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, dummy_flags)
+        else:
+            # Update flags and add entry for move history
+            updated_flags: Flags = self.update_flags_after_move()
+            move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, updated_flags)
 
+        self.move_history.append(move_entry)
         return True
+
+    def undo_move(self) -> None:
+        """
+        Function to undo last move (for simulation purposes)
+        """
+        if not self.move_history:
+            return
+        moved_piece_coord, captured_piece_coord, moved_piece, captured_piece, prev_flags = self.move_history.pop()
+        moved_piece_row, moved_piece_col = moved_piece_coord
+        captured_piece_row, captured_piece_col = captured_piece_coord
+
+        self.board[moved_piece_row][moved_piece_col] = moved_piece
+        self.board[captured_piece_row][captured_piece_col] = captured_piece
+        self.white_king_moved, self.black_king_moved, \
+            self.white_rook_moved, self.black_rook_moved = prev_flags
 
     def can_make_move(self, move: MoveCoordinate) -> bool:
         """
         Check if move is a valid move for pieces
         Call check_checker
         """
-        pass
+        old_coord, _ = move
+        for possible_move in self.get_piece_moves(old_coord):
+            if possible_move == move:
+                return True
+        return False
 
     def check_checker(self, move: MoveCoordinate) -> bool:
         """
         Simulate move and check if the king is in view of enemy piece
         """
-        pass
+        # Move history -> Tuple[OldCoord, NewCoord, MovedPiece, CapturedPiece, Flags]
+        self.make_move(move, True)
+        # Code to check if king is in LoS
+        self.undo_move()
 
     def get_piece_moves(self, coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
         """
@@ -86,7 +114,7 @@ class Board:
         appropriate piece function
         """
         piece_type = self.get_piece_info(coordinate).PieceType
-        
+
         if piece_type == 'P':
             return get_pawn_moves(self, coordinate)
         elif piece_type == 'B':
@@ -165,7 +193,7 @@ class Board:
 
     def update_flags_after_move(self) -> Flags:
         """
-        Update castling and check flags after every move
+        Update all flags after every move
         """
         pass
 
