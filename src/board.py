@@ -21,7 +21,7 @@ class Board:
             ["W_P"] * 8,
             ["W_R", "W_N", "W_B", "W_Q", "W_K", "W_B", "W_N", "W_R"]
             ]
-        
+        self.move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
         self.curr_move = 'W'
         self.move_history: List[Moves] = []
 
@@ -88,6 +88,8 @@ class Board:
 
         self.curr_move = 'B' if self.curr_move == 'W' else 'W'
         self.move_history.append(move_entry)
+        if not is_simulation:
+            self.move_cache.clear()
         return True
 
     def undo_move(self) -> None:
@@ -119,10 +121,13 @@ class Board:
         Call check_checker
         """
         old_coord, _ = move
-        for possible_move in self.get_piece_moves(old_coord):
-            if possible_move == move:
-                return True
-        return False
+        is_legal, is_safe = False, False
+        legal_moves = set(self.get_piece_moves(old_coord))
+        is_legal = move in legal_moves
+
+        if not self.check_checker(move):
+            is_safe = True
+        return is_legal and is_safe
 
     def check_checker(self, move: MoveCoordinate) -> bool:
         """
@@ -140,20 +145,26 @@ class Board:
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
         """
+        if coordinate in self.move_cache:
+            return self.move_cache[coordinate]
+
         piece_type = self.get_piece_info(coordinate).PieceType
 
         if piece_type == 'P':
-            return get_pawn_moves(self, coordinate)
+            moves = get_pawn_moves(self, coordinate)
         elif piece_type == 'B':
-            return get_bishop_moves(self, coordinate)
+            moves = get_bishop_moves(self, coordinate)
         elif piece_type == 'K':
-            return get_king_moves(self, coordinate)
+            moves = get_king_moves(self, coordinate)
         elif piece_type == 'N':
-            return get_knight_moves(self, coordinate)
+            moves = get_knight_moves(self, coordinate)
         elif piece_type == 'Q':
-            return get_queen_moves(self, coordinate)
+            moves = get_queen_moves(self, coordinate)
         else:
-            return get_rook_moves(self, coordinate)
+            moves = get_rook_moves(self, coordinate)
+
+        self.move_cache[coordinate] = moves
+        return moves
 
     def checkmate_stalemate_checker(self, move: MoveCoordinate) -> bool:
         """
