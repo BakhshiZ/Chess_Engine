@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from src.board import Board
 
-def bishop_rook_moves(
+def sliding_moves(
         board: 'Board',
         piece_coord: Coordinate,
         directions: List[Tuple[int, int]]
