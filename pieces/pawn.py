@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.board import Board
 
-def get_pawn_moves(board: 'Board', piece_coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
+def get_pawn_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordinate, ...]:
     legal_moves = []
-    square = board.get_piece_info(piece_coordinate)
+    square = board.get_piece_info(piece_coord)
     start_row = 6 if square.Color == 'W' else 1
     direction = -1 if square.Color == 'W' else 1
     

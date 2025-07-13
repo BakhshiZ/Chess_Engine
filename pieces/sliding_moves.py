@@ -10,7 +10,7 @@ def sliding_moves(
         directions: List[Tuple[int, int]]
 ) -> List[MoveCoordinate]:
     """
-    Shared moves for bishop, rook, queen to implement DRY principle
+    Shared moves for bishop, rook, queen to implement DRY (don't repeat yourself) principle
     """
     legal_moves = []
     square = board.get_piece_info(piece_coord)
