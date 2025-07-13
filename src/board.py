@@ -1,5 +1,8 @@
+import copy
+from pieces.stepping_moves import stepping_moves
+from pieces.sliding_moves import sliding_moves
 from src.types import Coordinate, MoveCoordinate, Flags, Moves, Piece, PieceInfo
-from src.constants import ROW_COUNT, COL_COUNT
+from src.constants import *
 from pieces import *
 from typing import List, Tuple
 
@@ -18,7 +21,16 @@ class Board:
             ["W_P"] * 8,
             ["W_R", "W_N", "W_B", "W_Q", "W_K", "W_B", "W_N", "W_R"]
             ]
+        
+        self.curr_move = 'W'
         self.move_history: List[Moves] = []
+
+        # Keeping track of king positions in dictionary for o(1) lookup time
+        self.king_pos = {
+            'W': (7, 4), # Default start is e1
+            'B': (0, 4) # Default start is e7
+        }
+
         # Castling flags
         self.white_king_moved = False
         self.black_king_moved = False
@@ -63,13 +75,18 @@ class Board:
 
         # Use dummy flags if simulating (won't affect state)
         if is_simulation:
-            dummy_flags: Flags = self.flags
+            dummy_flags: Flags = copy.deepcopy(self.flags)
             move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, dummy_flags)
         else:
             # Update flags and add entry for move history
             updated_flags: Flags = self.update_flags_after_move()
             move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, updated_flags)
 
+        # If moved piece is a king, updated position in dictionary
+        if old_target.PieceType == 'K':
+            self.king_pos[old_target.Color] = new_coord
+
+        self.curr_move = 'B' if self.curr_move == 'W' else 'W'
         self.move_history.append(move_entry)
         return True
 
@@ -79,14 +96,22 @@ class Board:
         """
         if not self.move_history:
             return
-        moved_piece_coord, captured_piece_coord, moved_piece, captured_piece, prev_flags = self.move_history.pop()
-        moved_piece_row, moved_piece_col = moved_piece_coord
-        captured_piece_row, captured_piece_col = captured_piece_coord
+        moved_piece_original_coord, captured_piece_original_coord, moved_piece, captured_piece, prev_flags = self.move_history.pop()
+        moved_piece_row, moved_piece_col = moved_piece_original_coord
+        captured_piece_row, captured_piece_col = captured_piece_original_coord        
 
         self.board[moved_piece_row][moved_piece_col] = moved_piece
         self.board[captured_piece_row][captured_piece_col] = captured_piece
+
+        # Moved_piece in form W_K or B_K, so [0] = color and [2] = type
+        moved_color = moved_piece[0]
+        moved_type = moved_piece[2]
+        if moved_type == 'K':
+            self.king_pos[moved_color] = moved_piece_original_coord
+
         self.white_king_moved, self.black_king_moved, \
             self.white_rook_moved, self.black_rook_moved = prev_flags
+        self.curr_move = 'B' if self.curr_move == 'W' else 'W'
 
     def can_make_move(self, move: MoveCoordinate) -> bool:
         """
@@ -105,8 +130,10 @@ class Board:
         """
         # Move history -> Tuple[OldCoord, NewCoord, MovedPiece, CapturedPiece, Flags]
         self.make_move(move, True)
-        # Code to check if king is in LoS
+        return_val = self.is_king_attacked(self.curr_move)
         self.undo_move()
+
+        return return_val
 
     def get_piece_moves(self, coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
         """
@@ -191,14 +218,82 @@ class Board:
                 self.board[0][4] = None
                 self.board[0][0] = None
 
+    def tuple_to_algebraic(tile: Coordinate) -> str:
+        """
+        Function to convert from form (7, 4) to e1
+        """
+        row, col = tile
+        file = chr(col + ord('a')) # 0 - 7 = a (a + 0) - h (a + 7)
+        rank = str(8 - row)
+        return file + rank # a + 4 = a4
+    
+    def algebraic_to_tuple(tile: Coordinate) -> Tuple[int, int]:
+        """
+        Function to convert from form e1 to (7, 4)
+        """
+        file = tile[0].lower()
+        rank = int(tile[1])
+        col = ord(file) - ord('a') # 0 - 7 = a (97 - 97) - h (104 - 97)
+        row = 8 - rank
+        return (row, col)
+    
     def update_flags_after_move(self) -> Flags:
         """
         Update all flags after every move
         """
         pass
+    
+    def is_king_attacked(self, enemy_color: chr) -> bool:
+        """
+        function to check if king under attack
+        * Check in L-Shape for knights
+        * Check diagonals for pawn / bishop / queen
+        * Check rook moves for queen / rook
 
-# if __name__ == '__main__':
-#     board = Board()
-#     board.print_board()
-#     board.make_move(((6, 4), (4, 4)))
-#     board.print_board()
+        * Stepping moves -> Knights
+        * Sliding moves -> Rook, Queen, Bishop
+        """
+        king_color = 'W' if enemy_color == 'B' else 'B'
+        king_coord = self.king_pos[king_color]
+        king_row, king_col = king_coord
+
+        # Checking L-shapes for knights
+        for target_row, target_col in stepping_moves(self, king_coord, KNIGHT_DIRECTIONS):
+            piece = self.get_piece_info((target_row, target_col))
+
+            if piece.PieceType is None:
+                continue
+            if piece.Color == enemy_color and piece.PieceType == 'N':
+                return True
+        
+        # Checking for bishops and queen on diagonal
+        for target_row, target_col in sliding_moves(self, king_coord, BISHOP_DIRECTIONS):
+            piece = self.get_piece_info((target_row, target_col))
+            if piece.PieceType is None:
+                            continue
+            if piece.Color == enemy_color and piece.PieceType in ('B', 'Q'):
+                return True
+
+        # Checking for rooks and queens on straights
+        for target_row, target_col in sliding_moves(self, king_coord, ROOK_DIRECTIONS):
+            piece = self.get_piece_info((target_row, target_col))
+            if piece.PieceType is None:
+                            continue
+            if piece.Color == enemy_color and piece.PieceType in ('R', 'Q'):
+                return True
+
+        for d_r, d_c in PAWN_CAPTURE_DIRECTIONS[king_color]:
+            target_row = king_row + d_r
+            target_col = king_col + d_c
+
+            if not (0 <= target_row <= 7 and 0 <= target_col <= 7):
+                continue
+
+            piece = self.get_piece_info((target_row, target_col))
+
+            if piece.PieceType is None:
+                continue
+            if piece.Color == enemy_color and piece.PieceType == 'P':
+                return True
+
+        return False

@@ -1,4 +1,5 @@
 from .shared import *
+from src.constants import PAWN_CAPTURE_DIRECTIONS
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -28,12 +29,9 @@ def get_pawn_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
                     legal_moves.append((old_coord, new_coord))
 
     # Diagonal squares for captures
-    directions = {
-        'B': [(1, -1), (1, 1)],
-        'W': [(-1, -1), (-1, 1)]
-    }
+    PAWN_CAPTURE_DIRECTIONS
 
-    for d_r, d_c in directions[square.Color]:
+    for d_r, d_c in PAWN_CAPTURE_DIRECTIONS[square.Color]:
         new_row = square.Row + d_r
         new_col = square.Col + d_c
         
