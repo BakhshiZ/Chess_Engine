@@ -1,6 +1,6 @@
-from src.types import Coordinate, MoveCoordinate
-from src.constants import MIN_INDEX, MAX_INDEX
-from typing import TYPE_CHECKING, Tuple
+from .shared import *
+from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from src.board import Board
 
