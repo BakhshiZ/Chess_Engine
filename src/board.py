@@ -1,5 +1,6 @@
 from src.types import Coordinate, MoveCoordinate, Flags, Moves, Piece, PieceInfo
 from src.constants import ROW_COUNT, COL_COUNT
+from pieces import *
 from typing import List, Tuple
 
 class Board:
@@ -84,7 +85,20 @@ class Board:
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
         """
-        pass
+        piece_type = self.get_piece_info(coordinate).PieceType
+        
+        if piece_type == 'P':
+            return get_pawn_moves(self, coordinate)
+        elif piece_type == 'B':
+            return get_bishop_moves(self, coordinate)
+        elif piece_type == 'K':
+            return get_king_moves(self, coordinate)
+        elif piece_type == 'N':
+            return get_knight_moves(self, coordinate)
+        elif piece_type == 'Q':
+            return get_queen_moves(self, coordinate)
+        else:
+            return get_rook_moves(self, coordinate)
 
     def checkmate_stalemate_checker(self, move: MoveCoordinate) -> bool:
         """
