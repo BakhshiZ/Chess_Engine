@@ -29,4 +29,4 @@ def get_knight_moves(board: 'Board', piece_coordinate: Coordinate) -> Tuple[Move
         if target_square.PieceType is None or target_square.Color != square.Color:
             legal_moves.append((old_coord, new_coord))
     
-    return legal_moves
+    return tuple(legal_moves)
