@@ -8,7 +8,7 @@ def stepping_moves(
         board: 'Board', 
         piece_coord: Coordinate, 
         directions: List[Tuple[int, int]]
-) -> List[MoveCoordinate]:
+) -> Tuple[MoveCoordinate, ...]:
     """
     Shared moves for king and knight to implement DRY (don't repeat yourself) principle
     """
@@ -28,4 +28,4 @@ def stepping_moves(
         if target_square.PieceType is None or target_square.Color != square.Color:
             legal_moves.append((piece_coord, new_coord))
 
-    return legal_moves
+    return tuple(legal_moves)

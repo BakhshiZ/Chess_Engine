@@ -223,7 +223,8 @@ class Board:
         for row in range(ROW_COUNT):
             print(8 - row, end=" | ")
             for col in range(COL_COUNT):
-                target = self.get_piece_info(coordinate=(row, col))
+                coord = (row, col)
+                target = self.get_piece_info(coord)
                 if target.PieceType is None:
                     print("   ", end=" | ")
                 else:
@@ -317,8 +318,9 @@ class Board:
         king_row, king_col = king_coord
 
         # Checking L-shapes for knights
-        for target_row, target_col in stepping_moves(self, king_coord, KNIGHT_DIRECTIONS):
-            piece = self.get_piece_info((target_row, target_col))
+        for _, target_coord in stepping_moves(self, king_coord, KNIGHT_DIRECTIONS):
+            target_row, target_col = target_coord
+            piece = self.get_piece_info(target_coord)
 
             if piece.PieceType is None:
                 continue
@@ -326,7 +328,8 @@ class Board:
                 return True
         
         # Checking for bishops and queen on diagonal
-        for target_row, target_col in sliding_moves(self, king_coord, BISHOP_DIRECTIONS):
+        for _, target_coord in sliding_moves(self, king_coord, BISHOP_DIRECTIONS):
+            target_row, target_col = target_coord
             piece = self.get_piece_info((target_row, target_col))
             if piece.PieceType is None:
                             continue
@@ -334,14 +337,16 @@ class Board:
                 return True
 
         # Checking for rooks and queens on straights
-        for target_row, target_col in sliding_moves(self, king_coord, ROOK_DIRECTIONS):
+        for _, target_coord in sliding_moves(self, king_coord, ROOK_DIRECTIONS):
+            target_row, target_col = target_coord
             piece = self.get_piece_info((target_row, target_col))
             if piece.PieceType is None:
                             continue
             if piece.Color == enemy_color and piece.PieceType in ('R', 'Q'):
                 return True
 
-        for d_r, d_c in PAWN_CAPTURE_DIRECTIONS[king_color]:
+        for directions in PAWN_CAPTURE_DIRECTIONS[king_color]:
+            d_r, d_c = directions
             target_row = king_row + d_r
             target_col = king_col + d_c
 
@@ -356,3 +361,10 @@ class Board:
                 return True
 
         return False
+    
+if __name__ == "__main__":
+    board = Board()
+    if not board.make_move(((6, 4), (5, 4))):
+        print("ILLEGAL")
+    else:
+        board.print_board()

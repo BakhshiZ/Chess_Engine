@@ -28,4 +28,4 @@ ROOK_DIRECTIONS = [
 PAWN_CAPTURE_DIRECTIONS = {
     'W': [(-1, -1), (-1, 1)],
     'B': [(1, -1), (1, 1)]
-},
+}

@@ -8,7 +8,7 @@ def sliding_moves(
         board: 'Board',
         piece_coord: Coordinate,
         directions: List[Tuple[int, int]]
-) -> List[MoveCoordinate]:
+) -> Tuple[MoveCoordinate, ...]:
     """
     Shared moves for bishop, rook, queen to implement DRY (don't repeat yourself) principle
     """
@@ -42,3 +42,5 @@ def sliding_moves(
 
             new_row += d_r
             new_col += d_c
+
+    return tuple(legal_moves)
