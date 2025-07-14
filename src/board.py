@@ -34,8 +34,8 @@ class Board:
         # Castling flags
         self.white_king_moved = False
         self.black_king_moved = False
-        self.white_rook_moved = (False, False) # Queenside, Kingside
-        self.black_rook_moved = (False, False) # Queenside, Kingside
+        self.white_rook_moved = [False, False] # Queenside, Kingside
+        self.black_rook_moved = [False, False] # Queenside, Kingside
 
         # Tuple to pass into move history
         self.flags = (self.white_king_moved, self.black_king_moved, self.white_rook_moved, self.black_rook_moved)
@@ -79,7 +79,7 @@ class Board:
             move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, dummy_flags)
         else:
             # Update flags and add entry for move history
-            updated_flags: Flags = self.update_flags_after_move()
+            updated_flags: Flags = self.update_flags_after_move(move)
             move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, updated_flags)
 
         # If moved piece is a king, updated position in dictionary
@@ -166,11 +166,41 @@ class Board:
         self.move_cache[coordinate] = moves
         return moves
 
-    def checkmate_stalemate_checker(self, move: MoveCoordinate) -> bool:
+    def checkmate_stalemate_checker(self) -> bool:
         """
-        Simulate move and check a side has no legal moves, then if stalemate of checkmate
+        Check a side has no legal moves, then if stalemate of checkmate
         """
-        pass
+        has_legal_moves = True
+
+        for row in range(8):
+            for col in range(8):
+                coord = (row, col)
+                piece = self.get_piece_info(coord)
+                if piece.PieceType is None or piece.Color != self.curr_move:
+                    continue
+                
+                # Checking if piece moves are legal
+                for move in self.get_piece_moves(coord):
+                    if self.can_make_move(move):
+                        has_legal_moves = True
+                        break
+
+                if has_legal_moves:
+                    break
+        
+        if has_legal_moves:
+            self.checkmate = False
+            self.stalemate = False
+            return True
+        
+        # If no legal moves then check if in check. If yes then checkmate else stalemate
+        enemy = 'W' if self.curr_move == 'B' else 'W'
+        if self.is_king_attacked(enemy):
+            self.checkmate = True
+            self.stalemate = False
+        else:
+            self.checkmate = False
+            self.stalemate = True
 
     # Helper functions
     def get_piece_info(self, piece_coord: Coordinate) -> PieceInfo:
@@ -248,11 +278,29 @@ class Board:
         row = 8 - rank
         return (row, col)
     
-    def update_flags_after_move(self) -> Flags:
+    def update_flags_after_move(self, move: MoveCoordinate) -> Flags:
         """
         Update all flags after every move
         """
-        pass
+        _, new_coord = move
+        piece = self.get_piece_info(new_coord)
+
+        if piece.PieceType == 'K':
+            if piece.Color == 'W':
+                self.white_king_moved = True
+            else:
+                self.black_king_moved = True
+
+        elif piece.PieceType == 'R':
+            rook_index = 0 if piece.Col == 0 else 1
+            if piece.Color == 'W':
+                self.white_rook_moved[rook_index] = True
+            else:
+                self.black_rook_moved[rook_index] = True
+
+        return (self.white_king_moved, self.black_king_moved, 
+        self.white_rook_moved, self.black_rook_moved)
+
     
     def is_king_attacked(self, enemy_color: chr) -> bool:
         """
