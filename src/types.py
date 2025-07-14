@@ -26,4 +26,8 @@ MovedPiece = Piece
 # Castling flags 
 Flags = Tuple[bool, bool, Tuple[bool, bool], Tuple[bool, bool]]
 
+# Move entry for move history
 Moves = Tuple[OldCoord, NewCoord, MovedPiece, CapturedPiece, Flags]
+
+# Return for engine minimax
+Eval_Move = Tuple[float, MoveCoordinate]

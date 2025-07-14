@@ -4,7 +4,7 @@ from pieces.sliding_moves import sliding_moves
 from src.types import Coordinate, MoveCoordinate, Flags, Moves, Piece, PieceInfo
 from src.constants import *
 from pieces import *
-from typing import List, Tuple
+from typing import List, Literal, Tuple
 
 class Board:
     def __init__(self) -> None:
@@ -21,10 +21,14 @@ class Board:
             ["W_P"] * 8,
             ["W_R", "W_N", "W_B", "W_Q", "W_K", "W_B", "W_N", "W_R"]
             ]
-        self.move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
+
         self.curr_move = 'W'
         self.move_history: List[Moves] = []
-
+        
+        # Per side caching for engine
+        self.B_move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
+        self.W_move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
+        
         # Keeping track of king positions in dictionary for o(1) lookup time
         self.king_pos = {
             'W': (7, 4), # Default start is e1
@@ -145,10 +149,13 @@ class Board:
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
         """
-        if coordinate in self.move_cache:
-            return self.move_cache[coordinate]
+        piece = self.get_piece_info(coordinate)
+        piece_color = piece.Color
+        piece_type = piece.PieceType
+        move_cache = getattr(self, f"{piece_color}_move_cache")
 
-        piece_type = self.get_piece_info(coordinate).PieceType
+        if coordinate in move_cache:
+            return move_cache[coordinate]
 
         if piece_type == 'P':
             moves = get_pawn_moves(self, coordinate)
@@ -162,9 +169,21 @@ class Board:
             moves = get_queen_moves(self, coordinate)
         else:
             moves = get_rook_moves(self, coordinate)
-
-        self.move_cache[coordinate] = moves
+        
+        move_cache[coordinate] = moves
         return moves
+
+    def get_side_moves(self, color: Literal['W', 'B']) -> Tuple[MoveCoordinate, ...]:
+        side_moves = []
+        for row in range(8):
+            for col in range(8):
+                coord = (row, col)
+                square = self.get_piece_info(coord)
+                if square.PieceType is None or square.Color != color:
+                    continue
+                side_moves.extend(self.get_piece_moves(coord))
+        
+        return tuple(side_moves)
 
     def checkmate_stalemate_checker(self) -> bool:
         """
