@@ -173,6 +173,22 @@ class Board:
         move_cache[coordinate] = moves
         return moves
 
+    def get_moves_efficient(self, coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
+        piece = self.get_piece_info(coordinate)
+
+        if piece.PieceType == 'P':
+            return get_pawn_moves(self, coordinate)
+        elif piece.PieceType == 'B':
+            return get_bishop_moves(self, coordinate)
+        elif piece.PieceType == 'N':
+            return get_knight_moves(self, coordinate)
+        elif piece.PieceType == 'R':
+            return get_rook_moves(self, coordinate)
+        elif piece.PieceType == 'Q':
+            return get_queen_moves(self, coordinate)
+        else:
+            return get_king_moves(self, coordinate)
+
     def get_side_moves(self, color: Literal['W', 'B']) -> Tuple[MoveCoordinate, ...]:
         side_moves = []
         for row in range(8):

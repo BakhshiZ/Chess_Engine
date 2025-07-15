@@ -15,7 +15,7 @@ piece_values = {
     'Q': 90,
     'K': 1e8
 }
-
+import random
 from .types import Eval_Move
 from typing import TYPE_CHECKING
 
@@ -27,17 +27,39 @@ class Engine:
         engine.color = color
         engine.difficulty = difficulty
 
-    def select_and_make_move(engine) -> bool:
+    def select_and_make_move(engine, board: 'Board') -> bool:
         """
         Choose move based on difficulty and every move update board.eval
         """
+        # Randomly makes a move
         if engine.difficulty == 'E':
-            pass
+            move = random.choice(board.get_side_moves(engine.color))
+            board.make_move(move)
+            board_eval = engine.evaluate_position(board)
+
+        # Makes move with depth = 2
         elif engine.difficulty == 'M':
-            pass
+            board_eval, move = engine.minmax(
+                alpha=-math.inf, 
+                beta=math.inf, 
+                is_maximising=True, 
+                depth=2, 
+                board=board
+            )
+            board.make_move(move)
+
+        # Makes move with max depth
         else:
-            pass
-        return True
+            board_eval, move = engine.minmax(
+                alpha=-math.inf,
+                beta=math.inf,
+                is_maximising=True,
+                depth=4,
+                board=board
+            )
+            board.make_move(move)
+
+        return (board_eval, move)
 
     def minmax(engine, alpha, beta, is_maximising, depth, board: 'Board') -> Eval_Move:
         # Terminating conditions
@@ -55,7 +77,9 @@ class Engine:
         if is_maximising:
             best_eval = -math.inf
             for move in board.get_side_moves(curr_color):
-                curr_eval, _ = engine.minmax(alpha, beta, False, depth - 1, )
+                board.make_move(move, True)
+                curr_eval, _ = engine.minmax(alpha, beta, False, depth - 1, board)
+                board.undo_move()
 
                 if curr_eval > best_eval:
                     best_eval = curr_eval
@@ -64,13 +88,15 @@ class Engine:
 
                 if beta <= alpha:
                     break
-            return (engine.evaluate_position(board), best_move)
+            return (best_eval, best_move)
 
         # Minimiser code
         else:
-            best_move = math.inf
+            best_eval = math.inf
             for move in board.get_side_moves(curr_color):
+                board.make_move(move, True)
                 curr_eval, _ = engine.minmax(alpha, beta, True, depth - 1, board)
+                board.undo_move()
 
                 if curr_eval < best_eval:
                     best_eval = curr_eval
@@ -79,10 +105,32 @@ class Engine:
 
                 if beta <= alpha:
                     break
-            return (engine.evaluate_position(board), best_move)
+        return (best_eval, best_move)
 
     def evaluate_position(engine, board: 'Board'):
         """
         difference = (W_mobility + W_value / 10) - (B_mobility + B_value / 10)
         """
-        pass
+        board_eval = 0.0
+        for row in range(8):
+            for col in range(8):
+                coord = (row, col)
+                square = board.get_piece_info(coord)
+                piece_type = square.PieceType
+                piece_color = square.Color
+                
+                if piece_type is None:
+                    continue
+
+                if piece_color != engine.color:
+                    board_eval -= (
+                        piece_values[piece_type] +
+                        len(board.get_moves_efficient(coord))
+                        ) / 10
+                else:
+                    board_eval += (
+                        piece_values[piece_type] +
+                        len(board.get_moves_efficient(coord))
+                        ) / 10
+        
+        return board_eval
