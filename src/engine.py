@@ -16,7 +16,7 @@ piece_values = {
     'K': 1e8
 }
 import random
-from .types import Eval_Move
+from .types import Color, Eval_Move, MoveCoordinate, PieceType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -39,25 +39,19 @@ class Engine:
 
         # Makes move with depth = 2
         elif engine.difficulty == 'M':
-            board_eval, move = engine.minmax(
-                alpha=-math.inf, 
-                beta=math.inf, 
-                is_maximising=True, 
-                depth=2, 
-                board=board
-            )
-            board.make_move(move)
-
+            depth = 2
         # Makes move with max depth
         else:
-            board_eval, move = engine.minmax(
-                alpha=-math.inf,
-                beta=math.inf,
-                is_maximising=True,
-                depth=4,
-                board=board
-            )
-            board.make_move(move)
+            depth = 4
+        
+        board_eval, move = engine.minmax(
+            alpha=-math.inf, 
+            beta=math.inf, 
+            is_maximising=True, 
+            depth=depth, 
+            board=board
+        )
+        board.make_move(move)
 
         return (board_eval, move)
 
@@ -72,6 +66,15 @@ class Engine:
             curr_color = 'W' if engine.color == 'B' else 'B'
         else:
             curr_color = engine.color
+
+        def move_score(engine, move: MoveCoordinate) -> int:
+            return engine.heuristic_move_score(move, board)
+    
+        ordered_moves = list(board.get_side_moves(curr_color))
+        ordered_moves.sort(
+            key=move_score,
+            reverse=is_maximising # Minimiser wants lowest score first, maxi wants high
+        )
 
         # Maximiser code
         if is_maximising:
@@ -121,16 +124,63 @@ class Engine:
                 
                 if piece_type is None:
                     continue
-
-                if piece_color != engine.color:
-                    board_eval -= (
-                        piece_values[piece_type] +
-                        len(board.get_moves_efficient(coord))
-                        ) / 10
+                
+                piece_value = piece_values[piece_type]
+                
+                if piece_color == engine.color:
+                    board_eval += piece_value
                 else:
-                    board_eval += (
-                        piece_values[piece_type] +
-                        len(board.get_moves_efficient(coord))
-                        ) / 10
-        
+                    board_eval -= piece_value
+
+        self_mobility = board.get_side_mobility(engine.color)
+        enemy_color = 'W' if engine.color == 'B' else 'B'
+        enemy_mobility = board.get_side_mobility(enemy_color)
+
+        board_eval += (self_mobility - enemy_mobility)
+        board_eval /= 10
+
         return board_eval
+    
+    def mvv_lva_score(engine, attacker_piece: PieceType, captured_piece: PieceType) -> int:
+        """
+        Returns Most Valuable Victim Least Valuable Attacker score (captured - attacker). 
+        Better captures yield higher scores
+        """
+        attacker_val = piece_values.get(attacker_piece, default=0)
+        captured_val = piece_values.get(captured_piece, default=1)
+
+        # Default formula for move ordering
+        return 10 * captured_val - attacker_val
+    
+    def heuristic_move_score(engine, move: MoveCoordinate, board: 'Board') -> int:
+        """
+        Function used to give moves a heuristic score to order them, valuing checks, captures
+        and fight for center squares
+        """
+        enemy_color = 'W' if engine.color == 'B' else 'B'
+        from_coord, to_coord = move
+        score = 0
+
+        attacker = board.get_piece_info(from_coord)
+        target = board.get_piece_info(to_coord)
+
+        """
+        Simulate move, look for checks and attacks
+        """
+        # Checks
+        board.make_move(move, is_simulation=True)
+
+        if board.is_king_attacked(enemy_color):
+            score += 100
+        
+        board.undo_move()
+
+        # Captures (implementing MVV-LVA)
+        if target.PieceType is not None:
+            score += engine.mvv_lva_score(attacker.PieceType, target.PieceType)
+        
+        # Attacking center
+        if to_coord in {(3, 3), (3, 4), (4, 3), (4, 4)}:
+            score += 5
+
+        return score
