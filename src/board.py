@@ -27,9 +27,12 @@ class Board:
         board.move_history: List[Moves] = []
         
         # Per side caching for engine
-        board.B_move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
-        board.W_move_cache: dict[Coordinate, Tuple[MoveCoordinate, ...]] = {}
-        
+        board.cache: dict[str, Tuple[Coordinate, Tuple[MoveCoordinate]]] = {
+            # 'B': dict[Coordinate, Tuple[MoveCoordinate, ...]] = {},
+            'B': {},
+            'W': {}
+        }
+
         # Keeping track of king positions in dictionary for o(1) lookup time
         board.king_pos = {
             'W': (7, 4), # Default start is e1
@@ -97,10 +100,11 @@ class Board:
         if old_target.PieceType == 'K':
             board.king_pos[old_target.Color] = new_coord
 
+        if not is_simulation:
+            board.cache[board.curr_move].clear()
+
         board.curr_move = 'B' if board.curr_move == 'W' else 'W'
         board.move_history.append(move_entry)
-        if not is_simulation:
-            board.move_cache.clear()
         return True
 
     def undo_move(board) -> None:
@@ -159,7 +163,7 @@ class Board:
         piece = board.get_piece_info(coordinate)
         piece_color = piece.Color
         piece_type = piece.PieceType
-        move_cache = getattr(board, f"{piece_color}_move_cache")
+        move_cache = board.cache[piece_color]
 
         if coordinate in move_cache:
             return move_cache[coordinate]
@@ -176,7 +180,7 @@ class Board:
             moves = get_queen_moves(board, coordinate)
         else:
             moves = get_rook_moves(board, coordinate)
-        
+
         move_cache[coordinate] = moves
         return moves
 
