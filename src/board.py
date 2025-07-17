@@ -64,17 +64,14 @@ class Board:
             return False
 
         old_coord, new_coord = move
-        old_target = board.get_piece_info(old_coord)
-        new_target = board.get_piece_info(new_coord)
+        old_row, old_col = old_coord
+        new_row, new_col = new_coord
 
-        old_row, old_col = old_target.Row, old_target.Col
-        new_row, new_col = new_target.Row, new_target.Col
+        old_square = board.board[old_row][old_col]
+        new_square = board.board[new_row][new_col]
 
-        moved_piece = old_target.Color + '_' + old_target.PieceType
-        captured_piece = (
-            new_target.Color + '_' + new_target.PieceType
-            if new_target.PieceType is not None else None
-        )
+        moved_piece = old_square
+        captured_piece = new_square
 
         is_en_passant = False
         promotion_final = None
@@ -84,13 +81,12 @@ class Board:
             captured_col = new_col
 
         # En passant capture
-        if old_target.PieceType == 'P' and captured_piece is None:
+        if moved_piece[2] == 'P' and captured_piece is None:
             if abs(new_row - old_row) == 1 and abs(new_col - old_col) == 1:
                 captured_row = old_row
                 captured_col = new_col
-                captured_coord = (captured_row, captured_col)
-                en_passant_piece = board.get_piece_info(captured_coord)
-                if en_passant_piece.PieceType == 'P' and en_passant_piece.Color != old_target.Color:
+                en_passant_piece = board.board[captured_row][captured_col]
+                if en_passant_piece[2] == 'P' and en_passant_piece[0] != moved_piece[0]:
                     is_en_passant = True
                     captured_piece = f"{en_passant_piece.Color}_P"
                     board.board[captured_row][captured_col] = None
@@ -101,9 +97,9 @@ class Board:
             board.castling_mover(move)
 
         # Handle promotion
-        if old_target.PieceType == 'P' and (new_row == 0 or new_row == 7):
+        if moved_piece[2] == 'P' and (new_row == 0 or new_row == 7):
             selected = promotion_piece if promotion_piece in ('Q', 'R', 'B', 'N') else 'Q'
-            promotion_final = old_target.Color + '_' + selected
+            promotion_final = moved_piece[0] + '_' + selected
             board.board[new_row][new_col] = promotion_final
         else:
             board.board[new_row][new_col] = moved_piece
@@ -245,9 +241,10 @@ class Board:
         Pass a coordinate and check all possible moves for that piece by calling the
         appropriate piece function
         """
-        piece = board.get_piece_info(coordinate)
-        piece_color = piece.Color
-        piece_type = piece.PieceType
+        row, col = coordinate
+        piece = board.board[row][col]
+        piece_color = piece[0]
+        piece_type = piece[2]
         move_cache = board.cache[piece_color]
 
         if coordinate in move_cache:
@@ -263,36 +260,42 @@ class Board:
             moves = get_knight_moves(board, coordinate)
         elif piece_type == 'Q':
             moves = get_queen_moves(board, coordinate)
-        else:
+        elif piece_type == 'R':
             moves = get_rook_moves(board, coordinate)
+        else:
+            return []
 
         move_cache[coordinate] = moves
         return moves
 
     def get_moves_efficient(board, coordinate: Coordinate) -> Tuple[MoveCoordinate, ...]:
-        piece = board.get_piece_info(coordinate)
+        row, col = coordinate
+        piece = board.board[row][col]
+        piece_type = piece[2]
 
-        if piece.PieceType == 'P':
+        if piece_type == 'P':
             return get_pawn_moves(board, coordinate)
-        elif piece.PieceType == 'B':
+        elif piece_type == 'B':
             return get_bishop_moves(board, coordinate)
-        elif piece.PieceType == 'N':
+        elif piece_type == 'N':
             return get_knight_moves(board, coordinate)
-        elif piece.PieceType == 'R':
+        elif piece_type == 'R':
             return get_rook_moves(board, coordinate)
-        elif piece.PieceType == 'Q':
+        elif piece_type == 'Q':
             return get_queen_moves(board, coordinate)
-        else:
+        elif piece_type == 'K':
             return get_king_moves(board, coordinate)
+        else:
+            return []
 
     def get_side_moves(board, color: Color) -> Tuple[MoveCoordinate, ...]:
         side_moves = []
         for row in range(8):
             for col in range(8):
-                coord = (row, col)
-                square = board.get_piece_info(coord)
-                if square.PieceType is None or square.Color != color:
+                square = board.board[row][col]
+                if square[2] is None or square[0] != color:
                     continue
+                coord = (row, col)
                 side_moves.extend(board.get_piece_moves(coord))
         
         return tuple(side_moves)
@@ -306,10 +309,10 @@ class Board:
         for row in range(8):
             for col in range(8):
                 coord = (row, col)
-                piece = board.get_piece_info(coord)
-                if piece.PieceType is None or piece.Color != board.curr_move:
+                piece = board.board[row][col]
+                if piece[2] is None or piece[0] != board.curr_move:
                     continue
-                
+
                 # Checking if piece moves are legal
                 for move in board.get_piece_moves(coord):
                     if board.can_make_move(move):
@@ -334,42 +337,28 @@ class Board:
             board.stalemate = True
 
     # Helper functions
-    def get_piece_info(board, piece_coord: Coordinate) -> PieceInfo:
-        row, col = piece_coord
-        if board.board[row][col] is None:
-            return PieceInfo(Row=row, Col=col, Color=None, PieceType=None)
-
-        color = board.board[row][col][0]
-        piece_type = board.board[row][col][2]
-        return PieceInfo(Row=row, Col=col, Color=color, PieceType=piece_type)
-        
-        """
-        info = board.get_piece_info((6, 4))
-        print(info.color, info.type)
-        """
-
     def print_board(board) -> None:
         letters = "     a     b     c     d     e     f     g     h"
         print(letters)
         for row in range(ROW_COUNT):
             print(8 - row, end=" | ")
             for col in range(COL_COUNT):
-                coord = (row, col)
-                target = board.get_piece_info(coord)
-                if target.PieceType is None:
+                target = board.board[row][col]
+                if target is None:
                     print("   ", end=" | ")
                 else:
-                    print(f"{target.Color}_{target.PieceType}", end=" | ")
+                    print(f"{target}", end=" | ")
             print(8 - row)
             print('---------------------------------------------------')
         print(letters)
 
     def castling_mover(board, move: MoveCoordinate) -> None:
         old_coord, _ = move
-        old_target = board.get_piece_info(old_coord)
+        row, col = old_coord
+        old_target = board.board[row][col]
 
-        if old_target.Row == 7:
-            if old_target.Col == 4:
+        if row == 7:
+            if col == 4:
                 board.board[7][6] = "W_K"
                 board.board[7][5] = "W_R"
                 board.board[7][4] = None
@@ -412,7 +401,7 @@ class Board:
                 rook_new_index = board.zobrist_index_finder(7, 3)
                 board.hash ^= board.zobrist_table["W_R"][rook_new_index]
         else:
-            if old_target.Col == 4:
+            if col == 4:
                 board.board[0][6] = "B_K"
                 board.board[0][5] = "B_R"
                 board.board[0][4] = None
@@ -479,17 +468,18 @@ class Board:
         Update all flags after every move
         """
         _, new_coord = move
-        piece = board.get_piece_info(new_coord)
+        row, col = new_coord
+        piece = board.board[row][col]
 
-        if piece.PieceType == 'K':
-            if piece.Color == 'W':
+        if piece[2] == 'K':
+            if piece[0] == 'W':
                 board.white_king_moved = True
             else:
                 board.black_king_moved = True
 
-        elif piece.PieceType == 'R':
-            rook_index = 0 if piece.Col == 0 else 1
-            if piece.Color == 'W':
+        elif piece[2] == 'R':
+            rook_index = 0 if col == 0 else 1
+            if piece[0] == 'W':
                 board.white_rook_moved[rook_index] = True
             else:
                 board.black_rook_moved[rook_index] = True
@@ -515,29 +505,31 @@ class Board:
         # Checking L-shapes for knights
         for _, target_coord in stepping_moves(board, king_coord, KNIGHT_DIRECTIONS):
             target_row, target_col = target_coord
-            piece = board.get_piece_info(target_coord)
+            piece = board.board[target_row][target_col]
 
-            if piece.PieceType is None:
+            if piece is None:
                 continue
-            if piece.Color == enemy_color and piece.PieceType == 'N':
+            if piece[0] == enemy_color and piece[2] == 'N':
                 return True
         
         # Checking for bishops and queen on diagonal
         for _, target_coord in sliding_moves(board, king_coord, BISHOP_DIRECTIONS):
             target_row, target_col = target_coord
-            piece = board.get_piece_info((target_row, target_col))
-            if piece.PieceType is None:
+            piece = board.board[target_row][target_col]
+
+            if piece is None:
                             continue
-            if piece.Color == enemy_color and piece.PieceType in ('B', 'Q'):
+            if piece[0] == enemy_color and piece[2] in ('B', 'Q'):
                 return True
 
         # Checking for rooks and queens on straights
         for _, target_coord in sliding_moves(board, king_coord, ROOK_DIRECTIONS):
             target_row, target_col = target_coord
-            piece = board.get_piece_info((target_row, target_col))
-            if piece.PieceType is None:
+            piece = board.board[target_row][target_col]
+            
+            if piece is None:
                             continue
-            if piece.Color == enemy_color and piece.PieceType in ('R', 'Q'):
+            if piece[0] == enemy_color and piece[2] in ('R', 'Q'):
                 return True
 
         for directions in PAWN_CAPTURE_DIRECTIONS[king_color]:
@@ -548,11 +540,11 @@ class Board:
             if not (0 <= target_row <= 7 and 0 <= target_col <= 7):
                 continue
 
-            piece = board.get_piece_info((target_row, target_col))
+            piece = board.board[target_row][target_col]
 
-            if piece.PieceType is None:
+            if piece is None:
                 continue
-            if piece.Color == enemy_color and piece.PieceType == 'P':
+            if piece[0] == enemy_color and piece[2] == 'P':
                 return True
 
         return False
@@ -561,13 +553,13 @@ class Board:
         mobility = 0
         for row in range(8):
             for col in range(8):
-                coord = (row, col)
-                square = board.get_piece_info(coord)
+                square = board.board[row][col]
                 
-                if square.PieceType is None:
+                if square is None:
                     continue
 
-                if square.Color == color:
+                if square[2] == color:
+                    coord = (row, col)
                     mobility += len(board.get_moves_efficient(coord))
         
         return mobility
@@ -621,12 +613,15 @@ class Board:
         board.king_pos[board.curr_move] = (row, 4)
 
     def is_pawn_promotion(board, move: MoveCoordinate) -> bool:
-        old, new = move
-        piece_info = board.get_piece_info(old)
-        if piece_info.PieceType == 'P':
-            if piece_info.Color == 'W' and new[0] == 0:
+        old_coord, new_coord = move
+        old_row, old_col = old_coord
+        new_row, new_col = new_coord
+
+        piece = board.board[old_row][old_col]
+        if piece[2] == 'P':
+            if piece[0] == 'W' and new_row == 0:
                 return True
-            elif piece_info.Color == 'B' and new[0] == 7:
+            elif piece[0] == 'B' and new_row == 7:
                 return True
         return False
 

@@ -130,14 +130,13 @@ class Engine:
         board_eval = 0.0
         for row in range(8):
             for col in range(8):
-                coord = (row, col)
-                square = board.get_piece_info(coord)
-                piece_type = square.PieceType
-                piece_color = square.Color
-                
+                square = board.board[row][col]
+                piece_type = square[2]
+                piece_color = square[0]
+
                 if piece_type is None:
                     continue
-                
+
                 piece_value = piece_values[piece_type]
                 
                 if piece_color == engine.color:
@@ -171,11 +170,13 @@ class Engine:
         and fight for center squares
         """
         enemy_color = 'W' if engine.color == 'B' else 'B'
-        from_coord, to_coord = move
+        attacker_coord, target_coord = move
+        att_row, att_col = attacker_coord
+        tar_row, tar_col = target_coord
         score = 0
 
-        attacker = board.get_piece_info(from_coord)
-        target = board.get_piece_info(to_coord)
+        attacker = board.board[att_row][att_col]
+        target = board.board[tar_row][tar_col]
 
         """
         Simulate move, look for checks and attacks
@@ -189,11 +190,11 @@ class Engine:
         board.undo_move()
 
         # Captures (implementing MVV-LVA)
-        if target.PieceType is not None:
-            score += engine.mvv_lva_score(attacker.PieceType, target.PieceType)
+        if target[2] is not None:
+            score += engine.mvv_lva_score(attacker[2], target[2])
         
         # Attacking center
-        if to_coord in {(3, 3), (3, 4), (4, 3), (4, 4)}:
+        if target_coord in {(3, 3), (3, 4), (4, 3), (4, 4)}:
             score += 5
 
         return score

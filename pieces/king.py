@@ -10,7 +10,7 @@ def get_king_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
     legal_moves = list(stepping_moves(board, piece_coord, ALL_DIRECTIONS))
 
     row, col = piece_coord
-    piece = board.get_piece_info(piece_coord)
+    piece = board.board[row][col]
 
     """
     King not in check
@@ -20,9 +20,9 @@ def get_king_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
     if piece.Color == 'W' and not board.white_king_moved:
         # Queenside
         if not board.white_rook_moved[0] and \
-         board.get_piece_info((7, 1)).PieceType is None and \
-         board.get_piece_info((7, 2)).PieceType is None and \
-         board.get_piece_info((7, 3)).PieceType is None and \
+         board.board[7][1] is None and \
+         board.board[7][2] is None and \
+         board.board[7][3] is None and \
          not board.is_king_attacked('B') and \
          not board.square_under_attack((7, 3), 'B') and \
          not board.square_under_attack((7, 2), 'B'):
@@ -30,8 +30,8 @@ def get_king_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
 
         # Kingside
         if not board.white_rook_moved[1] and \
-         board.get_piece_info((7, 5)).PieceType is None and \
-         board.get_piece_info((7, 6)).PieceType is None and \
+         board.board[7][5] is None and \
+         board.board[7][6] is None and \
          not board.is_king_attacked('B') and \
          not board.square_under_attack((7, 5), 'B') and \
          not board.square_under_attack((7, 6), 'B'):
@@ -50,8 +50,8 @@ def get_king_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
         
         # Kingside
         if not board.black_rook_moved[1] and \
-         board.get_piece_info((0, 5)).PieceType is None and \
-         board.get_piece_info((0, 6)).PieceType is None and \
+         board.board[0][5] is None and \
+         board.board[0][6] is None and \
          not board.is_king_attacked('W') and \
          not board.square_under_attack((0, 5), 'W') and \
          not board.square_under_attack((0, 6), 'W'):
