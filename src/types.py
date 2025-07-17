@@ -23,11 +23,15 @@ Piece = Union[str | None]
 CapturedPiece = Piece
 MovedPiece = Piece
 
+# Checker for if last move was en passant and what promotion was
+DidEnPassant = bool
+PromotionPiece = Piece
+
 # Castling flags 
 Flags = Tuple[bool, bool, Tuple[bool, bool], Tuple[bool, bool]]
 
 # Move entry for move history
-Moves = Tuple[OldCoord, NewCoord, MovedPiece, CapturedPiece, Flags]
+Moves = Tuple[OldCoord, NewCoord, MovedPiece, CapturedPiece, Flags, DidEnPassant, PromotionPiece]
 
 # Return for engine minimax
 Eval_Move = Tuple[float, MoveCoordinate]

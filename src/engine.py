@@ -17,7 +17,7 @@ piece_values = {
 }
 import random
 from .types import Color, Eval_Move, MoveCoordinate, PieceType
-from typing import TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.board import Board
@@ -26,6 +26,7 @@ class Engine:
     def __init__(engine, color: chr, difficulty: chr) -> None:
         engine.color = color
         engine.difficulty = difficulty
+        engine.transposition_table: dict[int, Tuple[int, int, MoveCoordinate]] = {}
 
     def select_and_make_move(engine, board: 'Board') -> bool:
         """
@@ -36,6 +37,8 @@ class Engine:
             move = random.choice(board.get_side_moves(engine.color))
             board.make_move(move)
             board_eval = engine.evaluate_position(board)
+            return (board_eval, move)
+
 
         # Makes move with depth = 2
         elif engine.difficulty == 'M':
@@ -56,10 +59,17 @@ class Engine:
         return (board_eval, move)
 
     def minmax(engine, alpha, beta, is_maximising, depth, board: 'Board') -> Eval_Move:
+        if board.hash in engine.transposition_table:
+            best_eval, stored_depth, best_move = engine.transposition_table[board.hash]
+            if stored_depth >= depth:
+                return (best_eval, best_move)
+
         # Terminating conditions
         best_move = None
-        if depth == 0 or board.checkmate or board.stalemate:
-            return (engine.evaluate_position(board), best_move)
+        end_state = board.checkmate_stalemate_checker()
+
+        if depth == 0 or end_state is not None:
+            return (engine.evaluate_position(board), None)
 
         # Minmax logic
         if not is_maximising:
@@ -91,6 +101,7 @@ class Engine:
 
                 if beta <= alpha:
                     break
+            engine.transposition_table[board.hash] = (best_eval, depth, best_move)
             return (best_eval, best_move)
 
         # Minimiser code
@@ -108,7 +119,9 @@ class Engine:
 
                 if beta <= alpha:
                     break
-        return (best_eval, best_move)
+        
+            engine.transposition_table[board.hash] = (best_eval, depth, best_move)
+            return (best_eval, best_move)
 
     def evaluate_position(engine, board: 'Board'):
         """
@@ -146,8 +159,8 @@ class Engine:
         Returns Most Valuable Victim Least Valuable Attacker score (captured - attacker). 
         Better captures yield higher scores
         """
-        attacker_val = piece_values.get(attacker_piece, default=0)
-        captured_val = piece_values.get(captured_piece, default=1)
+        attacker_val = piece_values.get(attacker_piece, 0)
+        captured_val = piece_values.get(captured_piece, 1)
 
         # Default formula for move ordering
         return 10 * captured_val - attacker_val

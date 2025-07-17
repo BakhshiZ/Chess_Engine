@@ -109,9 +109,9 @@ zobrist_table = {
     "B_B": [random.getrandbits(64) for _ in range(64)], 
     "B_R": [random.getrandbits(64) for _ in range(64)], 
     "B_Q": [random.getrandbits(64) for _ in range(64)], 
-    "B_K": [random.getrandbits(64) for _ in range(64)]
+    "B_K": [random.getrandbits(64) for _ in range(64)],
+    "BLACK_TO_MOVE": [random.getrandbits(64)]
     }
-
 
 def compute_zobrist_hash(board: 'Board') -> int:
     """
@@ -123,7 +123,7 @@ def compute_zobrist_hash(board: 'Board') -> int:
     """
     hash_val = 0
     bitboards = initialise_bitboards(board)
-    
+
     for piece in PIECES:
         for i in range(64):
             """

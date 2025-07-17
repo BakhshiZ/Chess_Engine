@@ -46,4 +46,17 @@ def get_pawn_moves(board: 'Board', piece_coord: Coordinate) -> Tuple[MoveCoordin
         if target_square.PieceType is not None and target_square.Color != square.Color:
             legal_moves.append((old_coord, new_coord))
 
+    # Checking for en croissant
+    last_move = board.move_history[-1]
+    moved_old_coord, moved_new_coord, moved_piece, _, _ = last_move
+    moved_old_row, _ = moved_old_coord
+    moved_new_row, moved_new_col = moved_new_coord
+    enemy_color = 'W' if square.Color == 'B' else 'B'
+    if (moved_piece == f"{enemy_color}_P" and abs(moved_new_row - moved_old_row) == 2) and (
+        moved_new_row == square.Row):
+        en_croissant_col = moved_new_col
+        en_croissant_row = moved_new_row + direction
+        en_croissant_coord = (en_croissant_row, en_croissant_col)
+        legal_moves.append((old_coord, en_croissant_coord))
+
     return tuple(legal_moves)

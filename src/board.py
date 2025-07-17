@@ -1,4 +1,4 @@
-from src.zobrist import zobrist_table
+from src.zobrist import compute_zobrist_hash, zobrist_table
 from pieces.stepping_moves import stepping_moves
 from pieces.sliding_moves import sliding_moves
 from src.types import *
@@ -23,6 +23,7 @@ class Board:
             ]
 
         board.zobrist_table = zobrist_table
+        board.hash = compute_zobrist_hash(board)
         board.curr_move = 'W'
         board.move_history: List[Moves] = []
         
@@ -52,16 +53,15 @@ class Board:
         board.checkmate = False
         board.stalemate = False
 
-    def make_move(board, move: MoveCoordinate, is_simulation: bool = False) -> bool:
+    def make_move(board, move: MoveCoordinate, is_simulation: bool = False, promotion_piece: str = None) -> bool:
         """
         Apply a move to the board.
         If is_simulation is True, skip validation and flag updates, but still update move_history for undoing.
+        promotion_piece: optional string ('Q', 'R', 'B', 'N') for user-specified promotion. Engine defaults to 'Q'.
         """
 
-        # If move is being simulated, no need to validate
-        if not is_simulation:
-            if not board.can_make_move(move):
-                return False
+        if not is_simulation and not board.can_make_move(move):
+            return False
 
         old_coord, new_coord = move
         old_target = board.get_piece_info(old_coord)
@@ -73,62 +73,147 @@ class Board:
         moved_piece = old_target.Color + '_' + old_target.PieceType
         captured_piece = (
             new_target.Color + '_' + new_target.PieceType
-            if new_target.PieceType is not None
-            else None
+            if new_target.PieceType is not None else None
         )
 
-        # Move piece
-        board.board[new_row][new_col] = moved_piece
+        is_en_passant = False
+        promotion_final = None
+
+        if captured_piece:
+            captured_row = new_row
+            captured_col = new_col
+
+        # En passant capture
+        if old_target.PieceType == 'P' and captured_piece is None:
+            if abs(new_row - old_row) == 1 and abs(new_col - old_col) == 1:
+                captured_row = old_row
+                captured_col = new_col
+                captured_coord = (captured_row, captured_col)
+                en_passant_piece = board.get_piece_info(captured_coord)
+                if en_passant_piece.PieceType == 'P' and en_passant_piece.Color != old_target.Color:
+                    is_en_passant = True
+                    captured_piece = f"{en_passant_piece.Color}_P"
+                    board.board[captured_row][captured_col] = None
+
+        # Detect castling
+        is_castling = moved_piece.endswith("_K") and abs(new_col - old_col) == 2
+        if is_castling:
+            board.castling_mover(move)
+
+        # Handle promotion
+        if old_target.PieceType == 'P' and (new_row == 0 or new_row == 7):
+            selected = promotion_piece if promotion_piece in ('Q', 'R', 'B', 'N') else 'Q'
+            promotion_final = old_target.Color + '_' + selected
+            board.board[new_row][new_col] = promotion_final
+        else:
+            board.board[new_row][new_col] = moved_piece
+
         board.board[old_row][old_col] = None
 
-        # Use dummy flags if simulating (won't affect state)
+        # Zobrist: remove moved piece from old square
+        board.hash ^= board.zobrist_table[moved_piece][board.zobrist_index_finder(old_row, old_col)]
+
+        # Zobrist: remove captured piece if any
+        if captured_piece:
+            board.hash ^= board.zobrist_table[captured_piece][board.zobrist_index_finder(captured_row, captured_col)]
+
+        # Zobrist: add final piece to new square
+        final_piece = promotion_final if promotion_final else moved_piece
+        board.hash ^= board.zobrist_table[final_piece][board.zobrist_index_finder(new_row, new_col)]
+
+        # Zobrist: toggle side to move
+        board.hash ^= board.zobrist_table["BLACK_TO_MOVE"]
+
+        # Update king position
+        if old_target.PieceType == 'K':
+            board.king_pos[old_target.Color] = new_coord
+
+        # Set flags
         if is_simulation:
-            dummy_flags: Flags = (
+            flags = (
                 board.white_king_moved,
                 board.black_king_moved,
                 list(board.white_rook_moved),
-                list(board.black_rook_moved)
+                list(board.black_rook_moved),
             )
-
-            move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, dummy_flags)
         else:
-            # Update flags and add entry for move history
-            updated_flags: Flags = board.update_flags_after_move(move)
-            move_entry: Moves = (old_coord, new_coord, moved_piece, captured_piece, updated_flags)
+            flags = board.update_flags_after_move(move)
 
-        # If moved piece is a king, updated position in dictionary
-        if old_target.PieceType == 'K':
-            board.king_pos[old_target.Color] = new_coord
+        # Record move history
+        move_entry: Moves = (
+            old_coord, new_coord, moved_piece, captured_piece,
+            flags, is_en_passant, promotion_final
+        )
+        board.move_history.append(move_entry)
 
         if not is_simulation:
             board.cache[board.curr_move].clear()
 
         board.curr_move = 'B' if board.curr_move == 'W' else 'W'
-        board.move_history.append(move_entry)
         return True
 
+
     def undo_move(board) -> None:
-        """
-        Function to undo last move (for simulation purposes)
-        """
         if not board.move_history:
             return
-        moved_piece_original_coord, captured_piece_original_coord, moved_piece, captured_piece, prev_flags = board.move_history.pop()
-        moved_piece_row, moved_piece_col = moved_piece_original_coord
-        captured_piece_row, captured_piece_col = captured_piece_original_coord        
 
-        board.board[moved_piece_row][moved_piece_col] = moved_piece
-        board.board[captured_piece_row][captured_piece_col] = captured_piece
-
-        # Moved_piece in form W_K or B_K, so [0] = color and [2] = type
-        moved_color = moved_piece[0]
-        moved_type = moved_piece[2]
-        if moved_type == 'K':
-            board.king_pos[moved_color] = moved_piece_original_coord
+        move_entry = board.move_history.pop()
+        old_coord, new_coord, moved_piece, captured_piece, prev_flags, is_en_passant, promotion_piece = move_entry
+        old_row, old_col = old_coord
+        new_row, new_col = new_coord
 
         board.white_king_moved, board.black_king_moved, \
             board.white_rook_moved, board.black_rook_moved = prev_flags
+
+        # If it was a promotion, revert to pawn
+        if promotion_piece:
+            board.board[old_row][old_col] = moved_piece  # e.g., 'W_P'
+            board.board[new_row][new_col] = None
+
+            # Zobrist: remove promoted piece from new square
+            board.hash ^= board.zobrist_table[promotion_piece][board.zobrist_index_finder(new_row, new_col)]
+
+            # Zobrist: add pawn back to old square
+            board.hash ^= board.zobrist_table[moved_piece][board.zobrist_index_finder(old_row, old_col)]
+
+        # Undo castling
+        elif moved_piece.endswith('_K') and abs(new_col - old_col) == 2:
+            board.undo_castling((old_coord, new_coord))
+
+        # Normal undo
+        else:
+            board.board[old_row][old_col] = moved_piece
+            board.board[new_row][new_col] = None
+
+            # Zobrist: remove moved piece from new square
+            board.hash ^= board.zobrist_table[moved_piece][board.zobrist_index_finder(new_row, new_col)]
+
+            # Zobrist: add it back to old square
+            board.hash ^= board.zobrist_table[moved_piece][board.zobrist_index_finder(old_row, old_col)]
+
+        # Handle en passant capture
+        if is_en_passant and captured_piece:
+            capture_row = new_row + (1 if moved_piece.startswith("W") else -1)
+            board.board[capture_row][new_col] = captured_piece
+            board.hash ^= board.zobrist_table[captured_piece][board.zobrist_index_finder(capture_row, new_col)]
+
+        # Normal capture restore
+        elif captured_piece:
+            board.board[new_row][new_col] = captured_piece
+            board.hash ^= board.zobrist_table[captured_piece][board.zobrist_index_finder(new_row, new_col)]
+
+        # Restore king position
+        if moved_piece.endswith('_K'):
+            board.king_pos[moved_piece[0]] = old_coord
+
+        # Zobrist: toggle side to move
+        board.hash ^= board.zobrist_table["BLACK_TO_MOVE"]
+
+        # Restore side to move
         board.curr_move = 'B' if board.curr_move == 'W' else 'W'
+
+        # Clear cached moves for the player to move
+        board.cache[board.curr_move].clear()
 
     def can_make_move(board, move: MoveCoordinate) -> bool:
         """
@@ -289,22 +374,86 @@ class Board:
                 board.board[7][5] = "W_R"
                 board.board[7][4] = None
                 board.board[7][7] = None
+
+                # Remove king from original square (7, 4)
+                king_old_index = board.zobrist_index_finder(7, 4)
+                board.hash ^= board.zobrist_table["W_K"][king_old_index]
+
+                # Add King to square (7, 6)
+                king_new_index = board.zobrist_index_finder(7, 6)
+                board.hash ^= board.zobrist_table["W_K"][king_new_index]
+
+                # Remove rook from square (7, 7)
+                rook_old_index = board.zobrist_index_finder(7, 7)
+                board.hash ^= board.zobrist_table["W_R"][rook_old_index]
+
+                # Add rook to square (7, 5)
+                rook_new_index = board.zobrist_index_finder(7, 5)
+                board.hash ^= board.zobrist_table["W_R"][rook_new_index]
             else:
                 board.board[7][2] = "W_K"
                 board.board[7][3] = "W_R"
                 board.board[7][4] = None
                 board.board[7][0] = None
+
+                # Remove king from original square (7, 4)
+                king_old_index = board.zobrist_index_finder(7, 4)
+                board.hash ^= board.zobrist_table["W_K"][king_old_index]
+
+                # Add King to square (7, 2)
+                king_new_index = board.zobrist_index_finder(7, 2)
+                board.hash ^= board.zobrist_table["W_K"][king_new_index]
+
+                # Remove rook from square (7, 0)
+                rook_old_index = board.zobrist_index_finder(7, 0)
+                board.hash ^= board.zobrist_table["W_R"][rook_old_index]
+
+                # Add rook to square (7, 3)
+                rook_new_index = board.zobrist_index_finder(7, 3)
+                board.hash ^= board.zobrist_table["W_R"][rook_new_index]
         else:
             if old_target.Col == 4:
                 board.board[0][6] = "B_K"
                 board.board[0][5] = "B_R"
                 board.board[0][4] = None
                 board.board[0][7] = None
+
+                # Remove king from original square (0, 4)
+                king_old_index = board.zobrist_index_finder(0, 4)
+                board.hash ^= board.zobrist_table["B_K"][king_old_index]
+
+                # Add King to square (0, 6)
+                king_new_index = board.zobrist_index_finder(0, 6)
+                board.hash ^= board.zobrist_table["B_K"][king_new_index]
+
+                # Remove rook from square (0, 7)
+                rook_old_index = board.zobrist_index_finder(0, 7)
+                board.hash ^= board.zobrist_table["B_R"][rook_old_index]
+
+                # Add rook to square (0, 5)
+                rook_new_index = board.zobrist_index_finder(0, 5)
+                board.hash ^= board.zobrist_table["B_R"][rook_new_index]
             else:
                 board.board[0][2] = "B_K"
                 board.board[0][3] = "B_R"
                 board.board[0][4] = None
                 board.board[0][0] = None
+
+                # Remove king from original square (0, 4)
+                king_old_index = board.zobrist_index_finder(0, 4)
+                board.hash ^= board.zobrist_table["B_K"][king_old_index]
+
+                # Add King to square (0, 2)
+                king_new_index = board.zobrist_index_finder(0, 2)
+                board.hash ^= board.zobrist_table["B_K"][king_new_index]
+
+                # Remove rook from square (0, 0)
+                rook_old_index = board.zobrist_index_finder(0, 0)
+                board.hash ^= board.zobrist_table["B_R"][rook_old_index]
+
+                # Add rook to square (0, 3)
+                rook_new_index = board.zobrist_index_finder(0, 3)
+                board.hash ^= board.zobrist_table["B_R"][rook_new_index]
 
     def tuple_to_algebraic(tile: Coordinate) -> str:
         """
@@ -423,9 +572,116 @@ class Board:
         
         return mobility
 
+    def square_under_attack(board, coord: Coordinate, by_color: str) -> bool:
+        enemy_moves = board.get_side_moves(by_color)
+        return coord in [target for _, target in enemy_moves]
+
+    def zobrist_index_finder(row: int, col: int) -> int:
+        return 8 * (7 - row) + col
+
+    def undo_castling(board, move: MoveCoordinate) -> None:
+        old_coord, new_coord = move
+        row = old_coord[0]
+
+        if new_coord[1] == 6:  # Kingside
+            # Restore king
+            board.board[row][4] = f"{board.curr_move}_K"
+            board.board[row][6] = None
+
+            # Restore rook
+            board.board[row][7] = f"{board.curr_move}_R"
+            board.board[row][5] = None
+
+            # Zobrist: revert king move
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_K"][board.zobrist_index_finder(row, 6)]
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_K"][board.zobrist_index_finder(row, 4)]
+
+            # Zobrist: revert rook move
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_R"][board.zobrist_index_finder(row, 5)]
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_R"][board.zobrist_index_finder(row, 7)]
+
+        elif new_coord[1] == 2:  # Queenside
+            # Restore king
+            board.board[row][4] = f"{board.curr_move}_K"
+            board.board[row][2] = None
+
+            # Restore rook
+            board.board[row][0] = f"{board.curr_move}_R"
+            board.board[row][3] = None
+
+            # Zobrist: revert king move
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_K"][board.zobrist_index_finder(row, 2)]
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_K"][board.zobrist_index_finder(row, 4)]
+
+            # Zobrist: revert rook move
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_R"][board.zobrist_index_finder(row, 3)]
+            board.hash ^= board.zobrist_table[f"{board.curr_move}_R"][board.zobrist_index_finder(row, 0)]
+
+        # Update king_pos
+        board.king_pos[board.curr_move] = (row, 4)
+
+    def is_pawn_promotion(board, move: MoveCoordinate) -> bool:
+        old, new = move
+        piece_info = board.get_piece_info(old)
+        if piece_info.PieceType == 'P':
+            if piece_info.Color == 'W' and new[0] == 0:
+                return True
+            elif piece_info.Color == 'B' and new[0] == 7:
+                return True
+        return False
+
+    def ask_user_promotion() -> str:
+        valid = {'Q', 'R', 'B', 'N'}
+        while True:
+            choice = input("Promote pawn to (Q/R/B/N)? ").upper()
+            if choice in valid:
+                return choice
+            print("Invalid choice. Please choose Q, R, B, or N.")
+
+
 if __name__ == "__main__":
     board = Board()
     if not board.make_move(((6, 4), (5, 4))):
         print("ILLEGAL")
     else:
         board.print_board()
+
+
+"""
+while True:
+    display board
+
+    move_str = input(f"{board.curr_move}'s move (e.g., e2 e4): ").strip().lower()
+    if move_str.lower() == 'quit':
+        break
+
+    if len(move_str) != 5:
+        print("Invalid input.")
+        continue
+
+    try:
+        from_coord = (8 - int(move_str[1]), ord(move_str[0]) - ord('a'))
+        to_coord = (8 - int(move_str[4]), ord(move_str[3]) - ord('a'))
+        move = (from_coord, to_coord)
+    except:
+        print("Invalid coordinates.")
+        continue
+
+    # Check for promotion
+    if is_pawn_promotion(board, move):
+        promotion_piece = ask_user_promotion()
+    else:
+        promotion_piece = None
+
+    # Make move
+    if not board.make_move(move, is_simulation=False, promotion_piece=promotion_piece):
+        print("Illegal move.")
+        continue
+
+    # Optional: check for end conditions
+    result = board.checkmate_stalemate_checker()
+    if result:
+        print(result)
+        break
+
+"""
