@@ -86,10 +86,6 @@ class MoveGenerator:
         direction = -1 if curr_piece.color == 'w' else 1
         promotion_row = 0 if curr_piece.color == 'w' else 7
 
-        """
-        move 1 up, 2 up, diagonal, promotion, en-passant
-        """
-
         # Move once
         one_step_row = curr_coords.row + direction
         one_step_coords = Coords(row=one_step_row, col=curr_coords.cols)
@@ -136,18 +132,11 @@ class MoveGenerator:
                     is_capture=True
                     ))
 
-        # En passant
-        for col_offset in PAWN_CAPTURE_DIRECTIONS:
-            """
-            same row diff col
-            if is a pawn
-            if pawn moved two ahead
-            """
-            checking_col = curr_coords.col + col_offset
-            checking_coords = Coords(row=curr_coords.row, col=checking_col)
+            # En passant
+            checking_coords = Coords(row=curr_coords.row, col=capture_col)
 
             if checking_coords == self.board.en_passant_coords:
-                target_coords = Coords(row=one_step_row, col=checking_col)
+                target_coords = Coords(row=one_step_row, col=capture_col)
 
                 legal_moves.append(Move(
                     start=curr_coords, 
