@@ -88,7 +88,7 @@ class MoveGenerator:
 
         # Move once
         one_step_row = curr_coords.row + direction
-        one_step_coords = Coords(row=one_step_row, col=curr_coords.cols)
+        one_step_coords = Coords(row=one_step_row, col=curr_coords.col)
         one_step_tile = self.board.get_piece_at(coords=one_step_coords)
 
         if one_step_tile.color is None:
@@ -117,6 +117,9 @@ class MoveGenerator:
         # Captures
         for col_offset in PAWN_CAPTURE_DIRECTIONS:
             capture_col = curr_coords.col + col_offset
+            if not (0 <= capture_col <= 7):
+                continue
+
             capture_coords = Coords(row=one_step_row, col=capture_col)
             capture_tile = self.board.get_piece_at(coords=capture_coords)
 
