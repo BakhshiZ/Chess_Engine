@@ -28,12 +28,11 @@ class Direction(NamedTuple):
     row_offset: int
     col_offset: int
 
-# UL, UR, DR, DL
 BISHOP_DIRECTIONS = (
-    Direction(-1, -1), 
-    Direction(-1, 1), 
-    Direction(1, 1), 
-    Direction(1, -1))
+    Direction(-1, -1), # UL
+    Direction(-1, 1),  # UR
+    Direction(1, 1),   # DR
+    Direction(1, -1))  # DL
 
 # U, D, R, L
 ROOK_DIRECTIONS = (

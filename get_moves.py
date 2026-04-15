@@ -10,9 +10,32 @@ class MoveGenerator:
         self.board = board
         self.en_passant_target = None
 
-    def get_all_legal_moves(self):
-        pass
+    def get_side_legal_moves(self):
+        """
+        Add checker for if in check
+        """
+        legal_moves = []
+        for row in range(8):
+            for col in range(8):
+                coords = (row, col)
+                piece = self.board.get_piece_at(coords=coords)
 
+                if piece.color is None or piece.color != self.board.current_move:
+                    continue
+
+                if piece.type == "pawn":
+                    legal_moves.append(self._get_pawn_moves(coords))
+                elif piece.type == "knight":
+                    legal_moves.append(self._get_stepping_moves(coords, KNIGHT_DIRECTIONS))
+                elif piece.type == "bishop":
+                    legal_moves.append(self._get_sliding_moves(coords, BISHOP_DIRECTIONS))
+                elif piece.type == "rook":
+                    legal_moves.append(self._get_sliding_moves(coords, ROOK_DIRECTIONS))
+                elif piece.type == "queen":
+                    legal_moves.append(self._get_sliding_moves(coords, QUEEN_DIRECTIONS))
+                else:
+                    legal_moves.append(self._get_stepping_moves(coords, KING_DIRECTIONS))
+                
     def _get_sliding_moves(self, curr_coords: Coords, directions: tuple[Direction,...]) -> list[Move]:
         """
         Function to find all moves for bishop, rook and queen
@@ -156,3 +179,74 @@ class MoveGenerator:
             is_promotion=True,
             promoted_to=new_type
         ))
+
+    def _king_in_check(self, coords: Coords) -> bool:
+        """
+        Function to see if after making move king is exposed. Check all sliding squares
+        outward from king to see if sliding piece is present and check if knights can attack king
+        """
+        
+        # Checking knight moves
+        for n_d in KNIGHT_DIRECTIONS:
+            knight_row = coords.row + n_d.row_offset
+            knight_col = coords.col + n_d.col_offset
+            if not (0 <= knight_row <= 7 and 0 <= knight_col <= 7):
+                continue
+            knight_coords = Coords(knight_row, knight_col)
+
+            king = self.board.get_piece_at(coords)
+            curr_tile = self.board.get_piece_at(knight_coords)
+            
+            if curr_tile.color == king.color:
+                break
+
+            if curr_tile.type is not "knight":
+                continue
+            return True
+        
+        # Checking sliding moves
+        for r_d in ROOK_DIRECTIONS:
+            rook_row = coords.row + r_d.row_offset
+            rook_col = coords.col + r_d.col_offset
+
+            while not (0 <= rook_row <= 7 and 0 <= rook_col <= 7):
+                rook_coords = Coords(rook_row, rook_col)
+                curr_tile = self.board.get_piece_at(rook_coords)
+
+                if curr_tile.color is None:
+                    rook_row += r_d.row_offset
+                    rook_col += r_d.col_offset
+
+                elif curr_tile.color == king.color:
+                    break
+
+                elif curr_tile.type not in ["rook", "queen"]:
+                    continue
+                
+                return True
+        
+        for b_d in BISHOP_DIRECTIONS:
+            bishop_row = coords.row + b_d.row_offset
+            bishop_col = coords.col + b_d.col_offset
+
+            while not (0 <= bishop_row <= 7 and 0 <= bishop_col <= 7):
+                bishop_coords = Coords(bishop_row, bishop_col)
+                curr_tile = self.board.get_piece_at(bishop_coords)
+
+                if curr_tile.color is None:
+                    bishop_row += b_d.row_offset
+                    bishop_col += b_d.col_offset
+
+                elif curr_tile.color == king.color:
+                    break
+
+                elif curr_tile.type not in ["bishop", "queen"]:
+                    continue
+                
+                elif curr_tile.type == "knight":
+                    return True
+
+                bishop_row += b_d.row_offset
+                bishop_col += b_d.col_offset
+
+        return False

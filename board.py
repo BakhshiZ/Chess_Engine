@@ -18,6 +18,7 @@ class Board:
         # White Kingside, White Queenside, Black Kingside, Black Queenside
         self.can_castle = [True, True, True, True]
         self.en_passant_coords: Coords | None = None # Reset after every move
+        self.current_move = 'w'
 
     def get_piece_at(self, coords: Coords) -> Piece:
         piece = self.grid[coords.row][coords.col]
