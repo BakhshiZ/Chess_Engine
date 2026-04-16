@@ -20,7 +20,7 @@ class MoveGenerator:
                 coords = (row, col)
                 piece = self.board.get_piece_at(coords=coords)
 
-                if piece.color is None or piece.color != self.board.current_move:
+                if piece.color != self.board.current_move:
                     continue
 
                 if piece.type == "pawn":
@@ -188,65 +188,92 @@ class MoveGenerator:
         
         # Checking knight moves
         for n_d in KNIGHT_DIRECTIONS:
-            knight_row = coords.row + n_d.row_offset
-            knight_col = coords.col + n_d.col_offset
-            if not (0 <= knight_row <= 7 and 0 <= knight_col <= 7):
+            possible_knight_row = coords.row + n_d.row_offset
+            possible_knight_col = coords.col + n_d.col_offset
+            if not (0 <= possible_knight_row <= 7 and 0 <= possible_knight_col <= 7):
                 continue
-            knight_coords = Coords(knight_row, knight_col)
+            possible_knight_coords = Coords(possible_knight_row, possible_knight_col)
 
             king = self.board.get_piece_at(coords)
-            curr_tile = self.board.get_piece_at(knight_coords)
+            curr_tile = self.board.get_piece_at(possible_knight_coords)
             
             if curr_tile.color == king.color:
-                break
-
-            if curr_tile.type is not "knight":
                 continue
+
+            if curr_tile.type != "knight":
+                continue
+
             return True
         
         # Checking sliding moves
         for r_d in ROOK_DIRECTIONS:
-            rook_row = coords.row + r_d.row_offset
-            rook_col = coords.col + r_d.col_offset
+            possible_rook_row = coords.row + r_d.row_offset
+            possible_rook_col = coords.col + r_d.col_offset
 
-            while not (0 <= rook_row <= 7 and 0 <= rook_col <= 7):
-                rook_coords = Coords(rook_row, rook_col)
-                curr_tile = self.board.get_piece_at(rook_coords)
+            while (0 <= possible_rook_row <= 7 and 0 <= possible_rook_col <= 7):
+                possible_rook_coords = Coords(possible_rook_row, possible_rook_col)
+                curr_tile = self.board.get_piece_at(possible_rook_coords)
 
                 if curr_tile.color is None:
-                    rook_row += r_d.row_offset
-                    rook_col += r_d.col_offset
+                    possible_rook_row += r_d.row_offset
+                    possible_rook_col += r_d.col_offset
+                    continue
 
                 elif curr_tile.color == king.color:
                     break
 
                 elif curr_tile.type not in ["rook", "queen"]:
-                    continue
+                    break
                 
                 return True
         
         for b_d in BISHOP_DIRECTIONS:
-            bishop_row = coords.row + b_d.row_offset
-            bishop_col = coords.col + b_d.col_offset
+            possible_bishop_row = coords.row + b_d.row_offset
+            possible_bishop_col = coords.col + b_d.col_offset
 
-            while not (0 <= bishop_row <= 7 and 0 <= bishop_col <= 7):
-                bishop_coords = Coords(bishop_row, bishop_col)
-                curr_tile = self.board.get_piece_at(bishop_coords)
+            while (0 <= possible_bishop_row <= 7 and 0 <= possible_bishop_col <= 7):
+                possible_bishop_coords = Coords(possible_bishop_row, possible_bishop_col)
+                curr_tile = self.board.get_piece_at(possible_bishop_coords)
 
                 if curr_tile.color is None:
-                    bishop_row += b_d.row_offset
-                    bishop_col += b_d.col_offset
+                    possible_bishop_row += b_d.row_offset
+                    possible_bishop_col += b_d.col_offset
+                    continue
 
                 elif curr_tile.color == king.color:
                     break
 
                 elif curr_tile.type not in ["bishop", "queen"]:
-                    continue
+                    break
                 
-                elif curr_tile.type == "knight":
+                return True
+
+        # Checking pawn diagonals
+        possible_pawn_row = coords.row - 1 if king.color == 'w' else coords.row + 1
+        if (0 <= possible_pawn_row <= 7):
+            for p_d in PAWN_CAPTURE_DIRECTIONS:
+                possible_pawn_col = coords.col + p_d
+                if not (0 <= possible_pawn_col <= 7):
+                    continue
+
+                possible_pawn_coords = Coords(possible_pawn_row, possible_pawn_col)
+                curr_tile = self.board.get_piece_at(possible_pawn_coords)
+
+                if curr_tile.color != king.color and curr_tile.type == "pawn":
                     return True
 
-                bishop_row += b_d.row_offset
-                bishop_col += b_d.col_offset
+        # Checking king squares
+        for k_d in KING_DIRECTIONS:
+            possible_king_row = coords.row + k_d.row_offset
+            possible_king_col = coords.col + k_d.col_offset
 
+            if not (0 <= possible_king_row <= 7 and 0 <= possible_king_col <= 7):
+                continue
+            
+            possible_king_coords = Coords(possible_king_row, possible_king_col)
+            curr_tile = self.board.get_piece_at(possible_king_coords)
+
+            if curr_tile.color != king.color and curr_tile.type == "king":
+                return True
+            
         return False

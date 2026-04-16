@@ -5,12 +5,6 @@ type COLOR = Literal[None, 'w', 'b']
 type PIECE_TYPE = Literal[None, "pawn", "knight", "bishop", "rook", "queen", "king"]
 type PROMOTION_OPTION = Literal[None, "n", "b", "r", "q"]
 
-@dataclass
-class Piece:
-    """Class for storing information about a piece on a tile"""
-    type: PIECE_TYPE
-    color: COLOR
-
 class Coords(NamedTuple):
     row: int
     col: int
@@ -19,14 +13,34 @@ class Move(NamedTuple):
     start: Coords
     end: Coords
     is_capture: bool = False
-    is_castle: bool = False
+    is_castle: list[bool] = [False, False, False, False]
     is_promotion: bool = False
-    promoted_to: PIECE_TYPE | None = None
     is_en_passant: bool = False
+    promoted_to: PIECE_TYPE | None = None
 
 class Direction(NamedTuple):
     row_offset: int
     col_offset: int
+
+@dataclass
+class Piece:
+    """Class for storing information about a piece on a tile"""
+    type: PIECE_TYPE
+    color: COLOR
+
+@dataclass
+class MoveHistory:
+    """Class for storing move history to allow for undo"""
+    start: Coords
+    end: Coords
+    en_passantable_pawn: Coords | None = None
+    is_promotion: bool = False
+    is_en_passant: bool = False
+    is_capture: bool = False
+    is_castle: list[bool] = [False, False, False, False]
+    new_type: PIECE_TYPE | None = None
+    moved_piece: Piece
+    captured_piece: Piece | None = None
 
 BISHOP_DIRECTIONS = (
     Direction(-1, -1), # UL
