@@ -66,11 +66,7 @@ class Board:
             captured_piece = self.get_piece_at(end_coords)
 
         if promotion_flag:
-            new_char = new_type[0] if new_type != "knight" else 'n'
-            if moved_piece.color == 'w':
-                new_char = new_char.upper()
-            
-            self.grid[end_coords.row][end_coords.col] = new_char
+            self.grid[end_coords.row][end_coords.col] = self._get_piece_chr(moved_piece, new_type)
         else:
             self.grid[end_coords.row][end_coords.col] = self.grid[start_coords.row][start_coords.col]
         self.grid[start_coords.row][start_coords.col] = None
@@ -94,3 +90,14 @@ class Board:
         )
 
         self.move_history.append(move_history_entry)
+
+    def _get_piece_chr(self, piece: Piece, new_type: PIECE_TYPE=None) -> chr | None:
+        if new_type:
+            piece_chr = new_type[0] if new_type != "knight" else 'n'            
+        else:
+            piece_chr = piece.type[0] if piece.type != "knight" else 'n'
+
+        if piece.color == 'w':
+            piece_chr = piece_chr.upper()
+
+        return piece_chr
