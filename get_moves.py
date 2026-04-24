@@ -15,9 +15,9 @@ class MoveGenerator:
         Add checker for if in check
         """
         legal_moves = []
-        for row in range(8):
-            for col in range(8):
-                coords = (row, col)
+        for rank in range(8):
+            for file in range(8):
+                coords = Coords(rank, file)
                 piece = self.board.get_piece_at(coords=coords)
 
                 if piece.color != self.board.current_move:
@@ -35,7 +35,9 @@ class MoveGenerator:
                     legal_moves.append(self._get_sliding_moves(coords, QUEEN_DIRECTIONS))
                 else:
                     legal_moves.append(self._get_stepping_moves(coords, KING_DIRECTIONS))
-                
+        
+        return legal_moves
+
     def _get_sliding_moves(self, curr_coords: Coords, directions: tuple[Direction,...]) -> list[Move]:
         """
         Function to find all moves for bishop, rook and queen
@@ -44,11 +46,11 @@ class MoveGenerator:
         curr_piece = self.board.get_piece_at(coords=curr_coords)
         
         for d in directions:
-            new_row = curr_coords.row + d.row_offset
-            new_col = curr_coords.col + d.col_offset
+            new_rank = curr_coords.rank + d.rank_offset
+            new_file = curr_coords.file + d.file_offset
 
-            while (0 <= new_row <= 7 and 0 <= new_col <= 7):
-                target_coords = Coords(row=new_row, col=new_col)
+            while (0 <= new_rank <= 7 and 0 <= new_file <= 7):
+                target_coords = Coords(rank=new_rank, file=new_file)
                 target_tile = self.board.get_piece_at(coords=target_coords)
 
                 if target_tile.color is None:
@@ -65,8 +67,8 @@ class MoveGenerator:
                 else:
                     break
             
-                new_row += d.row_offset
-                new_col += d.col_offset
+                new_rank += d.rank_offset
+                new_file += d.file_offset
         
         return legal_moves
     
@@ -78,16 +80,16 @@ class MoveGenerator:
         curr_piece = self.board.get_piece_at(coords=curr_coords)
 
         for d in directions:
-            new_row = curr_coords.row + d.row_offset
-            new_col = curr_coords.col + d.col_offset
+            new_rank = curr_coords.rank + d.rank_offset
+            new_file = curr_coords.file + d.file_offset
 
-            if not (0 <= new_row <= 7 and 0 <= new_col <= 7):
+            if not (0 <= new_rank <= 7 and 0 <= new_file <= 7):
                 continue
             
-            target_coords = Coords(row=new_row, col=new_col)
+            target_coords = Coords(rank=new_rank, file=new_file)
             target_tile = self.board.get_piece_at(coords=target_coords)
 
-            if target_tile.color != curr_piece.color:
+            if target_tile.color != curr_piece.color and target_tile.color is not None:
                 legal_moves.append(Move(
                     start=curr_coords,
                     end=target_coords,
@@ -105,19 +107,19 @@ class MoveGenerator:
         """
         legal_moves = []
         curr_piece = self.board.get_piece_at(coords=curr_coords)
-        starting_row = 6 if curr_piece.color == 'w' else 1
+        starting_rank = 6 if curr_piece.color == 'w' else 1
         direction = -1 if curr_piece.color == 'w' else 1
-        promotion_row = 0 if curr_piece.color == 'w' else 7
+        promotion_rank = 0 if curr_piece.color == 'w' else 7
 
         # Move once
-        one_step_row = curr_coords.row + direction
-        one_step_coords = Coords(row=one_step_row, col=curr_coords.col)
+        one_step_rank = curr_coords.rank + direction
+        one_step_coords = Coords(rank=one_step_rank, file=curr_coords.file)
         one_step_tile = self.board.get_piece_at(coords=one_step_coords)
 
         if one_step_tile.color is None:
             # Promotion
-            if one_step_row == promotion_row:
-                for new_type in ["n", "b", "r", "q"]:
+            if one_step_rank == promotion_rank:
+                for new_type in PROMOTION_PIECE:
                     self._add_promotion_moves(legal_moves, curr_coords, one_step_coords, new_type)
             else:
                 legal_moves.append(Move(
@@ -126,9 +128,9 @@ class MoveGenerator:
                     ))
 
                 # Move twice
-                if curr_coords.row == starting_row:
-                    two_step_row = curr_coords.row + 2 * direction
-                    two_step_coords = Coords(row=two_step_row, col=curr_coords.col)
+                if curr_coords.rank == starting_rank:
+                    two_step_rank = curr_coords.rank + 2 * direction
+                    two_step_coords = Coords(rank=two_step_rank, file=curr_coords.file)
                     two_step_tile = self.board.get_piece_at(two_step_coords)
 
                     if two_step_tile.color is None:
@@ -138,17 +140,17 @@ class MoveGenerator:
                         ))
 
         # Captures
-        for col_offset in PAWN_CAPTURE_DIRECTIONS:
-            capture_col = curr_coords.col + col_offset
-            if not (0 <= capture_col <= 7):
+        for file_offset in PAWN_CAPTURE_DIRECTIONS:
+            capture_file = curr_coords.file + file_offset
+            if not (0 <= capture_file <= 7):
                 continue
 
-            capture_coords = Coords(row=one_step_row, col=capture_col)
+            capture_coords = Coords(rank=one_step_rank, file=capture_file)
             capture_tile = self.board.get_piece_at(coords=capture_coords)
 
-            if capture_tile and capture_tile.color != curr_piece.color:
-                if one_step_row == promotion_row:
-                    for new_type in ["n", "b", "r", "q"]:
+            if capture_tile is not None and capture_tile.color != curr_piece.color:
+                if one_step_rank == promotion_rank:
+                    for new_type in PROMOTION_PIECE:
                         self._add_promotion_moves(legal_moves, curr_coords, 
                                                 capture_coords, new_type, capture_flag=True)
                 else:
@@ -159,19 +161,20 @@ class MoveGenerator:
                     ))
 
             # En passant
-            checking_coords = Coords(row=curr_coords.row, col=capture_col)
+            checking_coords = Coords(rank=curr_coords.rank, file=capture_file)
 
             if checking_coords == self.board.en_passant_coords:
-                target_coords = Coords(row=one_step_row, col=capture_col)
+                target_coords = Coords(rank=one_step_rank, file=capture_file)
 
                 legal_moves.append(Move(
                     start=curr_coords, 
                     end=target_coords,
                     is_en_passant=True
                     ))
-                
+        return legal_moves
+
     def _add_promotion_moves(self, legal_moves: list[Move], curr_coords: Coords, 
-                             end_coords: Coords, new_type: PROMOTION_OPTION, capture_flag=False) -> list[Move]:
+                             end_coords: Coords, new_type: PIECE_TYPE, capture_flag=False) -> list[Move]:
         legal_moves.append(Move(
             start=curr_coords,
             end=end_coords,
@@ -179,22 +182,23 @@ class MoveGenerator:
             is_promotion=True,
             promoted_to=new_type
         ))
+        return legal_moves
 
-    def _king_in_check(self, coords: Coords) -> bool:
+    def _king_in_check(self, king_coords: Coords) -> bool:
         """
         Function to see if after making move king is exposed. Check all sliding squares
         outward from king to see if sliding piece is present and check if knights can attack king
         """
-        
+        king = self.board.get_piece_at(king_coords)
+
         # Checking knight moves
         for n_d in KNIGHT_DIRECTIONS:
-            possible_knight_row = coords.row + n_d.row_offset
-            possible_knight_col = coords.col + n_d.col_offset
-            if not (0 <= possible_knight_row <= 7 and 0 <= possible_knight_col <= 7):
+            possible_knight_rank = king_coords.rank + n_d.rank_offset
+            possible_knight_file = king_coords.file + n_d.file_offset
+            if not (0 <= possible_knight_rank <= 7 and 0 <= possible_knight_file <= 7):
                 continue
-            possible_knight_coords = Coords(possible_knight_row, possible_knight_col)
+            possible_knight_coords = Coords(possible_knight_rank, possible_knight_file)
 
-            king = self.board.get_piece_at(coords)
             curr_tile = self.board.get_piece_at(possible_knight_coords)
             
             if curr_tile.color == king.color:
@@ -207,16 +211,16 @@ class MoveGenerator:
         
         # Checking sliding moves
         for r_d in ROOK_DIRECTIONS:
-            possible_rook_row = coords.row + r_d.row_offset
-            possible_rook_col = coords.col + r_d.col_offset
+            possible_rook_rank = king_coords.rank + r_d.rank_offset
+            possible_rook_file = king_coords.file + r_d.file_offset
 
-            while (0 <= possible_rook_row <= 7 and 0 <= possible_rook_col <= 7):
-                possible_rook_coords = Coords(possible_rook_row, possible_rook_col)
+            while (0 <= possible_rook_rank <= 7 and 0 <= possible_rook_file <= 7):
+                possible_rook_coords = Coords(possible_rook_rank, possible_rook_file)
                 curr_tile = self.board.get_piece_at(possible_rook_coords)
 
                 if curr_tile.color is None:
-                    possible_rook_row += r_d.row_offset
-                    possible_rook_col += r_d.col_offset
+                    possible_rook_rank += r_d.rank_offset
+                    possible_rook_file += r_d.file_offset
                     continue
 
                 elif curr_tile.color == king.color:
@@ -228,16 +232,16 @@ class MoveGenerator:
                 return True
         
         for b_d in BISHOP_DIRECTIONS:
-            possible_bishop_row = coords.row + b_d.row_offset
-            possible_bishop_col = coords.col + b_d.col_offset
+            possible_bishop_rank = king_coords.rank + b_d.rank_offset
+            possible_bishop_file = king_coords.file + b_d.file_offset
 
-            while (0 <= possible_bishop_row <= 7 and 0 <= possible_bishop_col <= 7):
-                possible_bishop_coords = Coords(possible_bishop_row, possible_bishop_col)
+            while (0 <= possible_bishop_rank <= 7 and 0 <= possible_bishop_file <= 7):
+                possible_bishop_coords = Coords(possible_bishop_rank, possible_bishop_file)
                 curr_tile = self.board.get_piece_at(possible_bishop_coords)
 
                 if curr_tile.color is None:
-                    possible_bishop_row += b_d.row_offset
-                    possible_bishop_col += b_d.col_offset
+                    possible_bishop_rank += b_d.rank_offset
+                    possible_bishop_file += b_d.file_offset
                     continue
 
                 elif curr_tile.color == king.color:
@@ -249,14 +253,14 @@ class MoveGenerator:
                 return True
 
         # Checking pawn diagonals
-        possible_pawn_row = coords.row - 1 if king.color == 'w' else coords.row + 1
-        if (0 <= possible_pawn_row <= 7):
+        possible_pawn_rank = king_coords.rank - 1 if king.color == 'w' else king_coords.rank + 1
+        if (0 <= possible_pawn_rank <= 7):
             for p_d in PAWN_CAPTURE_DIRECTIONS:
-                possible_pawn_col = coords.col + p_d
-                if not (0 <= possible_pawn_col <= 7):
+                possible_pawn_file = king_coords.file + p_d
+                if not (0 <= possible_pawn_file <= 7):
                     continue
 
-                possible_pawn_coords = Coords(possible_pawn_row, possible_pawn_col)
+                possible_pawn_coords = Coords(possible_pawn_rank, possible_pawn_file)
                 curr_tile = self.board.get_piece_at(possible_pawn_coords)
 
                 if curr_tile.color != king.color and curr_tile.type == "pawn":
@@ -264,13 +268,13 @@ class MoveGenerator:
 
         # Checking king squares
         for k_d in KING_DIRECTIONS:
-            possible_king_row = coords.row + k_d.row_offset
-            possible_king_col = coords.col + k_d.col_offset
+            possible_king_rank = king_coords.rank + k_d.rank_offset
+            possible_king_file = king_coords.file + k_d.file_offset
 
-            if not (0 <= possible_king_row <= 7 and 0 <= possible_king_col <= 7):
+            if not (0 <= possible_king_rank <= 7 and 0 <= possible_king_file <= 7):
                 continue
             
-            possible_king_coords = Coords(possible_king_row, possible_king_col)
+            possible_king_coords = Coords(possible_king_rank, possible_king_file)
             curr_tile = self.board.get_piece_at(possible_king_coords)
 
             if curr_tile.color != king.color and curr_tile.type == "king":
