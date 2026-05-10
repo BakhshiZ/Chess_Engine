@@ -37,6 +37,9 @@ class MoveGenerator:
         return legal_moves
     
     def _get_stepping_moves(self, old_coords: Coord, piece_type: PIECE_TYPE) -> list[Move]:
+        """
+        Function to get moves for stepping pieces (king, knight)
+        """
         legal_moves = []
         direction = self._get_directions(piece_type)
 
