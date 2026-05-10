@@ -15,7 +15,8 @@ class Board:
                 [None, None, None, None, None, None, None, None],
                 ["P", "P", "P", "P", "P", "P", "P", "P"],
                 ["R", "N", "B", "Q", "K", "B", "N", "R"]]
-
+        self.white_king_coords = Coord(7, 4)
+        self.black_king_coords = Coord(0, 4)
         self.current_move = 'w'
         self.move_history: list[MoveHistoryEntry] = []
 
@@ -27,6 +28,11 @@ class Board:
             captured_piece=self.grid[end_coords.row][end_coords.col],
             captured_color=self._get_piece_color(end_coords)
         ))
+
+        if start_coords == self.white_king_coords:
+            self.white_king_coords = end_coords
+        elif start_coords == self.black_king_coords:
+            self.black_king_coords = end_coords
 
         self.grid[end_coords.row][end_coords.col] = self.grid[start_coords.row][start_coords.col]
         self.grid[start_coords.row][start_coords.col] = None

@@ -30,6 +30,21 @@ class MoveGenerator:
         
         return pseudo_legal_moves
 
+    def get_side_legal_moves(self) -> list[Move]:
+        pseudo_legal_moves = self._get_side_pseudo_legal_moves()
+        legal_moves = []
+
+        for move in pseudo_legal_moves:
+            self.board.make_move(move)
+            if self.board.current_move == 'w':
+                king_coords = self.board.white_king_coords
+            else:
+                king_coords = self.board.black_king_coords
+            
+            if not self._is_king_in_check(king_coords):
+                legal_moves.append(move)
+        return legal_moves
+
     def _get_sliding_moves(self, old_coords: Coord, piece_type: PIECE_TYPE) -> list[Move]:
         """
         Function to get moves for sliding pieces (bishop, rook and queen)
