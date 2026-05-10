@@ -1,5 +1,5 @@
 from constants import *
-from typing import Union, cast
+from typing import cast
 
 class Board:
     """
@@ -7,118 +7,72 @@ class Board:
     while uppercase pieces are white ones
     """
     def __init__(self):
-        self.grid = [["r", "n", "b", "k", "q", "b", "n", "r"],
+        self.grid = [["r", "n", "b", "q", "k", "b", "n", "r"],
                 ["p", "p", "p", "p", "p", "p", "p", "p"],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 [None, None, None, None, None, None, None, None],
                 ["P", "P", "P", "P", "P", "P", "P", "P"],
-                ["R", "N", "B", "K", "Q", "B", "N", "R"]]
+                ["R", "N", "B", "Q", "K", "B", "N", "R"]]
 
-        # White Kingside, White Queenside, Black Kingside, Black Queenside
-        self.can_castle = [True, True, True, True]
-        self.en_passant_coords: Coords | None = None # Reset after every move
         self.current_move = 'w'
-        self.move_history: list[MoveHistory] = []
-
-    def get_piece_at(self, coords: Coords) -> Piece:
-        piece = self.grid[coords.rank][coords.file]
-
-        if piece is None:
-            return Piece(None, None)
-
-        piece_type = PIECE_MAP[piece.lower()]
-        piece_color = 'w' if piece == piece.upper() else 'b'
-
-        return Piece(piece_type, piece_color)
+        self.move_history: list[MoveHistoryEntry] = []
 
     def make_move(self, move: Move) -> None:
-        """
-        Function to update board state and move history
-        """
-        start_coords = move.start
-        end_coords = move.end
-        capture_flag = move.is_capture
-        castle_flags = move.is_castle
-        promotion_flag = move.is_promotion
-        en_passant_flag = move.is_en_passant
-        new_type = move.promoted_to
+        start_coords, end_coords = move
+        self.move_history.append(MoveHistoryEntry(
+            start_coords=start_coords,
+            end_coords=end_coords,
+            captured_piece=self.grid[end_coords.row][end_coords.col],
+            captured_color=self._get_piece_color(end_coords)
+        ))
 
-        en_passantable_pawn = self.en_passant_coords
-        self.en_passant_coords = None
-        moved_piece = self.get_piece_at(start_coords)
-
-        if en_passant_flag:
-            pawn_rank = start_coords.rank
-            pawn_file = end_coords.file
-
-            pawn_coords = Coords(pawn_rank, pawn_file)
-
-            captured_piece = self.get_piece_at(pawn_coords)
-
-            self.grid[pawn_rank][pawn_file] = None
-
-        else:
-            captured_piece = self.get_piece_at(end_coords)
-
-        if promotion_flag:
-            self.grid[end_coords.rank][end_coords.file] = self._get_piece_chr(moved_piece, new_type)
-        else:
-            self.grid[end_coords.rank][end_coords.file] = self.grid[start_coords.rank][start_coords.file]
-        self.grid[start_coords.rank][start_coords.file] = None
-
-        if moved_piece.type == "pawn" and abs(end_coords.rank - start_coords.rank) == 2:
-            self.en_passant_coords = end_coords
-
+        self.grid[end_coords.row][end_coords.col] = self.grid[start_coords.row][start_coords.col]
+        self.grid[start_coords.row][start_coords.col] = None
         self.current_move = 'b' if self.current_move == 'w' else 'w'
 
-        move_history_entry = MoveHistory(
-            start=start_coords,
-            end=end_coords,
-            en_passantable_pawn=en_passantable_pawn,
-            is_promotion=promotion_flag,
-            is_en_passant=en_passant_flag,
-            is_capture=capture_flag,
-            is_castle=castle_flags,
-            new_type=new_type,
-            moved_piece=moved_piece,
-            captured_piece=captured_piece
-        )
+    def undo_move(self) -> None:
+        if len(self.move_history) == 0:
+            return
+        
+        last_move = self.move_history.pop()
+        start_coords = last_move.start_coords
+        end_coords = last_move.end_coords
+        captured_piece = last_move.captured_piece
+        captured_color = last_move.captured_color
 
-        self.move_history.append(move_history_entry)
+        self.grid[start_coords.row][start_coords.col] = self.grid[end_coords.row][end_coords.col]
+        if captured_piece is not None:
+            if captured_color == 'w':
+                captured_piece = captured_piece.upper()
 
-    def _get_piece_chr(self, piece: Piece, new_type: PIECE_TYPE=None) -> Union[str, None]:
-        """
-        Helper function to return character stored in grid given a piece type and fileour
-        """
-        if piece.type is None:
-            return None
+        self.grid[end_coords.row][end_coords.col] = captured_piece
 
-        if new_type:
-            piece_chr = new_type[0] if new_type != "knight" else 'n'            
-        else:
-            piece_chr = piece.type[0] if piece.type != "knight" else 'n'
-
-        if piece.color == 'w':
-            piece_chr = piece_chr.upper()
-
-        return piece_chr
-    
-    def _alg_to_coords(self, square: SQUARE) -> Coords:
+    def _alg_to_coords(self, square: SQUARE):
         rank = 8 - int(square[1])
         file = FILES.index(square[0])
         
-        coord = Coords(rank, file)
+        coord = (rank, file)
         return coord
     
-    def _coords_to_alg(self, coords: Coords) -> SQUARE:
-        rank = RANKS[coords.rank]
+    def _coords_to_alg(self, coords) -> SQUARE:
+        rank = RANKS[coords.rank - 1]
         file = FILES[coords.file]
         square = file + rank
 
         return cast(SQUARE, square)
     
+    def _get_piece_color(self, coords: Coord) -> COLOR:
+        if self.grid[coords.row][coords.col] is None:
+            return None
+
+        # lowercase letters = black
+        if 97 <= ord(self.grid[coords.row][coords.col]) <= 122:
+            return 'b'
+        else:
+            return 'w'
+
     def __str__(self):
         return_str = ""
         for rank in range(8):
