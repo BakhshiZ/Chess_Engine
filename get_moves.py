@@ -8,8 +8,27 @@ class MoveGenerator:
 
     def __init__(self, board: Board):
         self.board = board
-        self.en_passant_target = None
 
+    def _get_side_pseudo_legal_moves(self) -> list[Move]:
+        pseudo_legal_moves = []
+        for row in range(8):
+            for col in range(8):
+                coords = Coord(row, col)
+                if self.board._get_piece_color(coords) == self.board.current_move:
+                    if self.board.grid[row][col] in ['p', 'P']:
+                        pseudo_legal_moves += self._get_pawn_moves(coords)
+                    elif self.board.grid[row][col] in ['b', 'B']:
+                        pseudo_legal_moves += self._get_sliding_moves(coords, 'b')
+                    elif self.board.grid[row][col] in ['n', 'N']:
+                        pseudo_legal_moves += self._get_stepping_moves(coords, 'n')
+                    elif self.board.grid[row][col] in ['r', 'R']:
+                        pseudo_legal_moves += self._get_sliding_moves(coords, 'r')
+                    elif self.board.grid[row][col] in ['q', 'Q']:
+                        pseudo_legal_moves += self._get_sliding_moves(coords, 'q')
+                    else:
+                        pseudo_legal_moves += self._get_stepping_moves(coords, 'k')
+        
+        return pseudo_legal_moves
     def _get_sliding_moves(self, old_coords: Coord, piece_type: PIECE_TYPE) -> list[Move]:
         """
         Function to get moves for sliding pieces (bishop, rook and queen)
