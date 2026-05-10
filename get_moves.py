@@ -78,6 +78,13 @@ class MoveGenerator:
         return direction
 
     def _get_pawn_moves(self, old_coords: Coord) -> list[Move]:
+        """
+        Function to get all possible pawn moves
+
+        TO-DO:
+            add en passant
+            add promotion
+        """
         legal_moves = []
         
         if self.board.current_move == 'w':
@@ -116,3 +123,90 @@ class MoveGenerator:
             if self.board._get_piece_color(new_coords) != self.board.current_move:
                 legal_moves.append((old_coords, new_coords))
         return legal_moves
+    
+    def _is_king_in_check(self, king_coords: Coord) -> bool:
+        """
+        Function that checks outwards from king to see if it is under attack
+        """
+
+        # Knight
+        for dr, dc in KNIGHT_DIRECTIONS:
+            attacker_row = king_coords.row + dr
+            attacker_col = king_coords.col + dc
+            attacker_coords = Coord(attacker_row, attacker_col)
+            
+            if not (0 <= attacker_row <= 7 and 0 <= attacker_col <= 7):
+                continue
+            
+            if self.board._get_piece_color(attacker_coords) != self.board.current_move and \
+                self.board.grid[attacker_row][attacker_col] in ['n', 'N']:
+                return True
+        
+        # Bishop & Queen (diagonal)
+        for dr, dc in BISHOP_DIRECTIONS:
+            attacker_row = king_coords.row + dr
+            attacker_col = king_coords.col + dc
+
+            while (0 <= attacker_row <= 7 and 0 <= attacker_col <= 7):
+                attacker_coords = Coord(attacker_row, attacker_col)
+                if self.board._get_piece_color(attacker_coords) is None:
+                    attacker_row += dr
+                    attacker_col += dc
+                elif self.board._get_piece_color(attacker_coords) == self.board.current_move:
+                    break
+                elif self.board._get_piece_color(attacker_coords) != self.board.current_move and \
+                    self.board.grid[attacker_row][attacker_col] in ['b', 'B', 'q', 'Q']:
+                    return True
+                else:
+                    break
+        
+        # Rook & Queen (vertical + horizontal)
+        for dr, dc in ROOK_DIRECTIONS:
+            attacker_row = king_coords.row + dr
+            attacker_col = king_coords.col + dc
+
+            while (0 <= attacker_row <= 7 and 0 <= attacker_col <= 7):
+                attacker_coords = Coord(attacker_row, attacker_col)
+                
+                if self.board._get_piece_color(attacker_coords) is None:
+                    attacker_row += dr
+                    attacker_col += dc
+                elif self.board._get_piece_color(attacker_coords) == self.board.current_move:
+                    break
+                elif self.board._get_piece_color(attacker_coords) != self.board.current_move and \
+                    self.board.grid[attacker_row][attacker_col] in ['r', 'R', 'q', 'Q']:
+                    return True
+                else:
+                    break
+        # Pawn
+        if self.board.current_move == 'w':
+            direction = -1
+        else:
+            direction = 1
+
+        for dc in [-1, 1]:
+            attacker_row = king_coords.row + direction
+            attacker_col = king_coords.col + dc
+            attacker_coords = Coord(attacker_row, attacker_col)
+
+            if not (0 <= attacker_row <= 7 and 0 <= attacker_col <= 7):
+                continue
+
+            if self.board._get_piece_color(attacker_coords) != self.board.current_move and \
+                self.board.grid[attacker_row][attacker_col] in ['p', 'P']:
+                return True
+        
+        # King (to prevent illegal moves)
+        for dr, dc in KING_DIRECTIONS:
+            attacker_row = king_coords.row + dr
+            attacker_col = king_coords.col + dc
+            attacker_coords = Coord(attacker_row, attacker_col)
+
+            if not (0 <= attacker_row <= 7 and 0 <= attacker_col <= 7):
+                continue
+
+            if self.board._get_piece_color(attacker_coords) != self.board.current_move and \
+                  self.board.grid[attacker_row][attacker_col] in ['k', 'K']:
+                return True
+
+        return False
