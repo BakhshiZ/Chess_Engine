@@ -29,6 +29,7 @@ class MoveGenerator:
                         pseudo_legal_moves += self._get_stepping_moves(coords, 'k')
         
         return pseudo_legal_moves
+
     def _get_sliding_moves(self, old_coords: Coord, piece_type: PIECE_TYPE) -> list[Move]:
         """
         Function to get moves for sliding pieces (bishop, rook and queen)
