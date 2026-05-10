@@ -86,15 +86,33 @@ class MoveGenerator:
         else:
             direction = 1
             starting_row = 1
+
         # One step move
         one_step_row = old_coords.row + direction
         new_coords = Coord(one_step_row, old_coords.col)
         if self.board.grid[one_step_row][old_coords.col] is None:
             legal_moves.append((old_coords, new_coords))
-        
+
+            # Two step move
             if old_coords.row == starting_row:
                 two_step_row = one_step_row + direction
                 new_coords = Coord(two_step_row, old_coords.col)
                 if self.board.grid[two_step_row][old_coords.col] is None:
                     legal_moves.append((old_coords, new_coords))
+
+        # Captures
+        pawn_capture_directions = (
+            (direction, -1),
+            (direction, 1)
+        )
+
+        for dr, dc in pawn_capture_directions:
+            new_row = old_coords.row + dr
+            new_col = old_coords.col + dc
+            new_coords = Coord(new_row, new_col)
+            if not (0 <= new_row <= 7 and 0 <= new_col <= 7):
+                continue
+
+            if self.board._get_piece_color(new_coords) != self.board.current_move:
+                legal_moves.append((old_coords, new_coords))
         return legal_moves
