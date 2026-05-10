@@ -76,3 +76,25 @@ class MoveGenerator:
             direction = []
         
         return direction
+
+    def _get_pawn_moves(self, old_coords: Coord) -> list[Move]:
+        legal_moves = []
+        
+        if self.board.current_move == 'w':
+            direction = -1
+            starting_row = 6
+        else:
+            direction = 1
+            starting_row = 1
+        # One step move
+        one_step_row = old_coords.row + direction
+        new_coords = Coord(one_step_row, old_coords.col)
+        if self.board.grid[one_step_row][old_coords.col] is None:
+            legal_moves.append((old_coords, new_coords))
+        
+            if old_coords.row == starting_row:
+                two_step_row = one_step_row + direction
+                new_coords = Coord(two_step_row, old_coords.col)
+                if self.board.grid[two_step_row][old_coords.col] is None:
+                    legal_moves.append((old_coords, new_coords))
+        return legal_moves
